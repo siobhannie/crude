@@ -1,0 +1,12 @@
+/target
+/get-your-own
+
+# i'm an emacs lover :3
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
