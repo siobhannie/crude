@@ -45,8 +45,8 @@ pub fn mftb(gc: &mut Gamecube, instr: &Instruction) {
     let reg = instr.tbr();
 
     gc.cpu.gprs[instr.d()] = match reg {
-	268 => gc.cpu.tb.0, //TBL
-	269 => gc.cpu.tb.1, //TBU
+	268 => (gc.cpu.tb & 0xFFFFFFFF) as u32, //TBL
+	269 => ((gc.cpu.tb >> 32) & 0xFFFFFFFF) as u32, //TBU
 	_ => unimplemented!("tbl {reg}"),
     }
 }

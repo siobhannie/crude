@@ -1,5 +1,3 @@
-use bitfield::bitfield;
-
 pub struct Instruction(pub u32);
 
 impl Instruction {
@@ -72,5 +70,26 @@ impl Instruction {
 
     pub fn crd(&self) -> usize {
 	((self.0 >> 23) & 7) as usize
+    }
+
+   
+    pub fn lk(&self) -> bool {
+	(self.0 & 1) != 0
+    }
+
+    pub fn aa(&self) -> bool {
+	((self.0 >> 1) & 1) != 0
+    }
+
+    pub fn bd(&self) -> u16 {
+	((self.0 >> 2) & 0x3FFF) as u16
+    }
+
+    pub fn bi(&self) -> usize {
+	((self.0 >> 16) & 0x1F) as usize
+    }
+
+    pub fn bo(&self) -> usize {
+	((self.0 >> 21) & 0x1F) as usize
     }
 }

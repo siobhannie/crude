@@ -6,13 +6,15 @@ pub mod bitwise;
 pub mod cache;
 pub mod mmu;
 pub mod util;
+pub mod control_flow;
 
 use arithmetic::{addi, addis, cmpli, subf};
 use bitwise::{ori, rlwinm};
 use cache::isync;
 use config::{mfmsr, mfspr, mftb, mtmsr, mtspr, mtsr};
+use control_flow::bc;
 use instr::Instruction;
-use load_store::{lwz, sth, stw};
+use load_store::{lwz, sth, stw, stwu};
 use log::{debug, info};
 use mmu::Mmu;
 
@@ -25,8 +27,10 @@ pub struct Cpu {
     pub mmu: Mmu,
     pub hid0: u32,
     pub msr: MachineStateRegister,
-    pub tb: (u32, u32),
+    pub tb: u64,
     pub cr: ConditionRegister,
+    pub ctr: u32,
+    pub lr: u32,
 }
 
 impl Cpu {
@@ -38,8 +42,10 @@ impl Cpu {
 	    mmu: Mmu::new(),
 	    hid0: 0,
 	    msr: MachineStateRegister(0),
-	    tb: (0, 0),
+	    tb: 0,
 	    cr: ConditionRegister(0),
+	    ctr: 0,
+	    lr: 0,
 	}
     }
 }
@@ -55,6 +61,7 @@ pub fn step(gc: &mut Gamecube) {
 	0b001010 => cmpli(gc, &instruction),
 	0b001110 => addi(gc, &instruction),
 	0b001111 => addis(gc, &instruction),
+	0b010000 => bc(gc, &instruction),
 	0b010101 => rlwinm(gc, &instruction),
 	0b011000 => ori(gc, &instruction),
 	0b010011 => match instruction.sec_opcd() {
@@ -73,11 +80,14 @@ pub fn step(gc: &mut Gamecube) {
 	},
 	0b100000 => lwz(gc, &instruction),
 	0b100100 => stw(gc, &instruction),
+	0b100101 => stwu(gc, &instruction),
 	0b101100 => sth(gc, &instruction),
 	a => unimplemented!("opcode: {a:#08b}, instruction: {:#034b}", instruction.0),
     }
     
     gc.cpu.cia = gc.cpu.nia;
+
+    gc.cpu.tb += 1;
 }
 
 pub fn write_hid0(gc: &mut Gamecube, val: u32) {

@@ -1,18 +1,23 @@
 use audio_interface::ai_write_u16;
 use byteorder::{BigEndian, ByteOrder};
 use cpu::Cpu;
+use external_interface::{exi_write_u32, ExternalInterface};
 use log::debug;
 use memory_interface::mi_write_u16;
 use processor_interface::{pi_read_u32, pi_write_u32};
+use serial_interface::si_write_u32;
 
 pub mod cpu;
 pub mod audio_interface;
 pub mod memory_interface;
 pub mod processor_interface;
+pub mod serial_interface;
+pub mod external_interface;
 
 pub struct Gamecube {
     cpu: Cpu,
     bios: Vec<u8>,
+    exi: ExternalInterface,
 }
 
 impl Gamecube {
@@ -20,6 +25,7 @@ impl Gamecube {
 	Self {
 	    cpu: Cpu::new(),
 	    bios: Vec::new(),
+	    exi: ExternalInterface::new(),
 	}
     }
     
@@ -54,6 +60,8 @@ impl Gamecube {
 
 	match phys {
 	    0x0C00_3000..=0x0C00_3FFF => pi_write_u32(self, phys - 0x0C00_3000, val),
+	    0x0C00_6400..=0x0C00_67FF => si_write_u32(self, phys - 0x0C00_6400, val),
+	    0x0C00_6800..=0x0C00_6BFF => exi_write_u32(self, phys - 0x0C00_6800, val),
 	    _ => unimplemented!("addr {phys:#010X} for write_u32"),
 	}
     }
