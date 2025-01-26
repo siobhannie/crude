@@ -5,6 +5,7 @@ A gamecube emulator, written in rust, just for fun :3
 Not sure why you would right now, but it's as simple as the following:
 ```
 cargo run -- [path to IPL bin file]
+```
 
 ## Credits
 Resources I've made use of
