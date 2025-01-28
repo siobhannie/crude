@@ -8,8 +8,10 @@ pub mod mmu;
 pub mod util;
 pub mod control_flow;
 
+use std::cmp::Ordering;
+
 use arithmetic::{addi, addis, cmpli, subf};
-use bitwise::{ori, rlwinm};
+use bitwise::{and, ori, rlwinm};
 use cache::isync;
 use config::{mfmsr, mfspr, mftb, mtmsr, mtspr, mtsr};
 use control_flow::bc;
@@ -48,6 +50,20 @@ impl Cpu {
 	    lr: 0,
 	}
     }
+
+    pub fn do_cr0(&mut self, val: u32) {
+	let val = val as i32;
+
+	let order = match val.cmp(&0) {
+	    Ordering::Equal => 0x2,
+	    Ordering::Greater => 0x4,
+	    Ordering::Less => 0x8,
+	};
+
+	//xer here :3
+
+	self.cr.set_reg(0, order);
+    }
 }
 
 pub fn step(gc: &mut Gamecube) {
@@ -69,6 +85,7 @@ pub fn step(gc: &mut Gamecube) {
 	    a => unimplemented!("secondary opcode: {a:#012b}, priomary: 0b010011, instruction: {:#034b}", instruction.0),
 	},
 	0b011111 => match instruction.sec_opcd() {
+	    0b0000011100 => and(gc, &instruction),
 	    0b0000101000 => subf(gc, &instruction),
 	    0b0001010011 => mfmsr(gc, &instruction),
 	    0b0010010010 => mtmsr(gc, &instruction),

@@ -1,8 +1,9 @@
+#![feature(core_intrinsics)]
+
 use audio_interface::ai_write_u16;
 use byteorder::{BigEndian, ByteOrder};
 use cpu::Cpu;
-use external_interface::{exi_write_u32, ExternalInterface};
-use log::debug;
+use external_interface::{exi_read_u32, exi_write_u32, ExternalInterface};
 use memory_interface::mi_write_u16;
 use processor_interface::{pi_read_u32, pi_write_u32};
 use serial_interface::si_write_u32;
@@ -40,6 +41,7 @@ impl Gamecube {
 	
 	match phys {
 	    0x0C00_3000..=0x0C00_3FFF => pi_read_u32(self, phys - 0x0C00_3000),
+	    0x0C00_6800..=0x0C00_6BFF => exi_read_u32(self, phys - 0x0C00_6800),
 	    0xFFF0_0000..=0xFFFF_FFFF => BigEndian::read_u32(&self.bios[(phys as usize - 0xFFF0_0000)..]),
 	    _ => unimplemented!("addr {phys:#010X} for read_u32"),
 	}

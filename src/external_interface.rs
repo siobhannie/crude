@@ -1,6 +1,8 @@
 pub mod ad16;
 pub mod null;
 
+use std::intrinsics::unreachable;
+
 use ad16::AD16;
 use log::debug;
 use null::NullDevice;
@@ -25,25 +27,38 @@ impl ExternalInterface {
 
 pub fn exi_write_u32(gc: &mut Gamecube, offset: u32, val: u32) {
     let channel_idx = offset / 0x14;
-    let mut channel = match channel_idx {
+    let channel = match channel_idx {
 	0 => &mut gc.exi.channel0,
 	1 => &mut gc.exi.channel1,
 	2 => &mut gc.exi.channel2,
 	_ => unreachable!("attempted to access exi channel {channel_idx}"),
     };
     let reg = offset % 0x14;
-    match reg {
-	0x10 => {
-	    
-	},
-	_ => unimplemented!("EXI reg {reg:#X}"),
-    }
+
+    channel.write(reg, val);
     
     debug!("EXI write channel: {channel_idx} at register: {reg:#X} with val: {val:#010X}");
 }
 
+pub fn exi_read_u32(gc: &mut Gamecube, offset: u32) -> u32 {
+    let channel_idx = offset/0x14;
+    let channel = match channel_idx {
+	0 => &mut gc.exi.channel0,
+	1 => &mut gc.exi.channel1,
+	2 => &mut gc.exi.channel2,
+	_ => unreachable!("attempted to access exi channel {channel_idx}"),
+    };
+    let reg = offset % 0x14;
+
+    debug!("EXI read channel: {channel_idx} at register: {reg:#X}");
+
+    channel.read(reg)
+}
+
 pub trait EXIDevice {
-    
+    fn imm_write(&mut self);
+    fn imm_read(&mut self) -> u32;
+    fn imm_data_write(&mut self, val: u32);
 }
 
 pub struct EXIChannel {
@@ -62,6 +77,49 @@ impl EXIChannel {
 	    dma_length: 0,
 	    control: EXIChannelControl(0),
 	    devices,
+	}
+    }
+
+    fn choose_device(&mut self) -> &mut Box<dyn EXIDevice> {
+	match self.params.cs() {
+	    0x1 => &mut self.devices[0],
+	    0x2 => &mut self.devices[1],
+	    0x4 => &mut self.devices[2],
+	    _ => &mut self.devices[0],
+	}
+    }
+
+    pub fn read(&mut self, reg: u32) -> u32 {
+	let device = self.choose_device();
+	match reg {
+	    0x0 => self.params.0,
+	    0xC => self.control.0,
+	    0x10 => device.imm_read(),
+	    _ => unreachable!("EXI Channel reg {reg:#X} read"),
+	}
+    }
+
+    pub fn write(&mut self, reg: u32, val: u32) {
+	let device = self.choose_device();
+	match reg {
+	    0x0 => {
+		self.params = EXIChannelParams(val);
+		let dma = self.control.dma();
+		let rw = self.control.rw();
+		let device = self.choose_device();
+		if dma {
+		    unimplemented!("dma transfer");
+		} else {
+		    if rw == 0x0 {
+			//nothing to do...
+		    } else if rw == 0x1 {
+			device.imm_write();
+		    }
+		}
+	    },
+	    0xC => self.control = EXIChannelControl(val),
+	    0x10 => device.imm_data_write(val),
+	    _ => unreachable!("EXI Channel reg {reg:#X} with val {val:#X}"),
 	}
     }
 }

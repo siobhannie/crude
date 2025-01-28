@@ -15,3 +15,11 @@ pub fn rlwinm(gc: &mut Gamecube, instr: &Instruction) {
 	unimplemented!("cr0!");
     }
 }
+
+pub fn and(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.s()] = gc.cpu.gprs[instr.a()] & gc.cpu.gprs[instr.b()];
+
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.s()]);
+    }
+}
