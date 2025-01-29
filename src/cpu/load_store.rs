@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::Gamecube;
 
 use super::instr::Instruction;

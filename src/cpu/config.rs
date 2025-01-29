@@ -7,6 +7,8 @@ pub fn mtspr(gc: &mut Gamecube, instr: &Instruction) {
     let spr = instr.spr();
 
     match spr {
+	0b00000_01000 => gc.cpu.lr = val,
+	0b00000_01001 => gc.cpu.ctr = val,
 	0b10000_10000 => gc.cpu.mmu.write_ibatu(0, val),
 	0b10000_10001 => gc.cpu.mmu.write_ibatl(0, val),
 	0b10000_10010 => gc.cpu.mmu.write_ibatu(1, val),

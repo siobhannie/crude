@@ -1,34 +1,75 @@
+use log::debug;
+
 use super::EXIDevice;
 
 const AD16_ID: u32 = 0x0412_0000;
 
 pub struct AD16 {
-    pub imm_data: u32,
+    reg: u32,
+    position: u32,
+    command: u32,
 }
 
 impl AD16 {
     pub fn new() -> Self {
         Self {
-	    imm_data: 0,
+	    reg: 0,
+	    position: 0,
+	    command: 0,
 	}
     }
 }
 
 impl EXIDevice for AD16 {
-    fn imm_write(&mut self) {
-	match self.imm_data {
-	    0x0 => {
-		self.imm_data = AD16_ID;
-	    },
-	    a => unimplemented!("ad16 command {a:#X}"),
+    fn transfer_byte(&mut self, byte: &mut u8) {
+	if self.position == 0 {
+	    self.command = (*byte) as u32;
+	} else {
+	    match self.command {
+		0 => {
+		    self.reg = AD16_ID;
+		    
+		    match self.position {
+			2 => *byte = self.reg as u8,
+			3 => *byte = (self.reg >> 8) as u8,
+			4 => *byte = (self.reg >> 16) as u8,
+			5 => *byte = (self.reg >> 24) as u8,
+			_ => {},
+			
+		    }
+		},
+		0xA0 => {
+		    match self.position {
+			1 => {
+			    self.reg &= !0xFF;
+			    self.reg |= *byte as u32;
+			}
+			2 => {
+			    self.reg &= !(0xFF << 8);
+			    self.reg |= (*byte as u32) << 8;
+			}
+			3 => {
+			    self.reg &= !(0xFF << 16);
+			    self.reg |= (*byte as u32) << 16;
+			},
+			4 => {
+			    self.reg &= !(0xFF << 24);
+			    self.reg |= (*byte as u32) << 24;
+			}
+			_ => {},
+			
+		    }
+		}
+		a => unimplemented!("ad16 command {a:#X}"),
+	    }
 	}
+
+	self.position += 1;
     }
 
-    fn imm_read(&mut self) -> u32 {
-	self.imm_data
+    fn select(&mut self) {
+        self.position = 0;
     }
 
-    fn imm_data_write(&mut self, val: u32) {
-	self.imm_data = val;
-    }
+    
 }

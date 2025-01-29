@@ -4,15 +4,11 @@ pub struct NullDevice;
 
 
 impl EXIDevice for NullDevice {
-    fn imm_write(&mut self) {
-	panic!("imm_write to null device!!");
+    fn transfer_byte(&mut self, byte: &mut u8) {
+	panic!("transfer_byte called for null device!");
     }
 
-    fn imm_data_write(&mut self, val: u32) {
-	panic!("imm_data_write to null device!!");
-    }
-
-    fn imm_read(&mut self) -> u32 {
-	panic!("imm_read to null device!!");
+    fn select(&mut self) {
+	panic!("select called for null device!");
     }
 }

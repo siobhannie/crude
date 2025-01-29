@@ -19,6 +19,7 @@ pub struct Gamecube {
     cpu: Cpu,
     bios: Vec<u8>,
     exi: ExternalInterface,
+    memory: Vec<u8>,
 }
 
 impl Gamecube {
@@ -27,6 +28,7 @@ impl Gamecube {
 	    cpu: Cpu::new(),
 	    bios: Vec::new(),
 	    exi: ExternalInterface::new(),
+	    memory: vec![0; 0x180_0000],
 	}
     }
     
@@ -40,6 +42,7 @@ impl Gamecube {
 	let phys = self.cpu.mmu.translate_addr(instr, addr, &self.cpu.msr);
 	
 	match phys {
+	    0x0000_0000..=0x017F_FFFF => BigEndian::read_u32(&self.memory[(phys as usize)..]),
 	    0x0C00_3000..=0x0C00_3FFF => pi_read_u32(self, phys - 0x0C00_3000),
 	    0x0C00_6800..=0x0C00_6BFF => exi_read_u32(self, phys - 0x0C00_6800),
 	    0xFFF0_0000..=0xFFFF_FFFF => BigEndian::read_u32(&self.bios[(phys as usize - 0xFFF0_0000)..]),
@@ -61,6 +64,7 @@ impl Gamecube {
 	let phys = self.cpu.mmu.translate_addr(false, addr, &self.cpu.msr);
 
 	match phys {
+	    0x0000_0000..=0x017F_FFFF => BigEndian::write_u32(&mut self.memory[(phys as usize)..], val),
 	    0x0C00_3000..=0x0C00_3FFF => pi_write_u32(self, phys - 0x0C00_3000, val),
 	    0x0C00_6400..=0x0C00_67FF => si_write_u32(self, phys - 0x0C00_6400, val),
 	    0x0C00_6800..=0x0C00_6BFF => exi_write_u32(self, phys - 0x0C00_6800, val),

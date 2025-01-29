@@ -1,5 +1,13 @@
 use log::debug;
 
+pub fn sext_26(val: u32) -> i32 {
+    if val & 0x0200_0000 != 0 {
+	(val | 0xFC00_0000) as i32
+    } else {
+	val as i32
+    }
+}
+
 pub fn mask(mb: usize, me: usize) -> u32 {
     let mut mask = 0xFFFF_FFFF >> mb;
 

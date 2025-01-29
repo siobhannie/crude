@@ -34,10 +34,8 @@ pub fn exi_write_u32(gc: &mut Gamecube, offset: u32, val: u32) {
 	_ => unreachable!("attempted to access exi channel {channel_idx}"),
     };
     let reg = offset % 0x14;
-
+    debug!("EXI write_u32 to channel {channel_idx} in reg {reg:#X} with val {val:#X}");
     channel.write(reg, val);
-    
-    debug!("EXI write channel: {channel_idx} at register: {reg:#X} with val: {val:#010X}");
 }
 
 pub fn exi_read_u32(gc: &mut Gamecube, offset: u32) -> u32 {
@@ -49,16 +47,37 @@ pub fn exi_read_u32(gc: &mut Gamecube, offset: u32) -> u32 {
 	_ => unreachable!("attempted to access exi channel {channel_idx}"),
     };
     let reg = offset % 0x14;
-
-    debug!("EXI read channel: {channel_idx} at register: {reg:#X}");
-
+    debug!("EXI read_u32 to channel {channel_idx} in reg {reg:#X}");
     channel.read(reg)
 }
 
 pub trait EXIDevice {
-    fn imm_write(&mut self);
-    fn imm_read(&mut self) -> u32;
-    fn imm_data_write(&mut self, val: u32);
+    fn transfer_byte(&mut self, byte: &mut u8);
+    
+    fn imm_write(&mut self, mut data: u32, mut size: u32) {
+	while size != 0 {
+	    let mut byte = (data >> 24) as u8;
+	    self.transfer_byte(&mut byte);
+	    data <<= 8;
+	    size -= 1;
+	}
+    }
+    fn imm_read(&mut self, mut size: u32) -> u32 {
+	let mut position = 0u32;
+	let mut result = 0u32;
+
+	while size != 0 {
+	    let mut byte = 0u8;
+	    self.transfer_byte(&mut byte);
+	    result |= (byte as u32) << (24 - (position * 8));
+	    position += 1;
+	    size -= 1;
+	}
+
+	result
+    }
+    
+    fn select(&mut self);
 }
 
 pub struct EXIChannel {
@@ -67,6 +86,7 @@ pub struct EXIChannel {
     dma_length: u32,
     control: EXIChannelControl,
     devices: [Box<dyn EXIDevice>; 3],
+    imm_data: u32,
 }
 
 impl EXIChannel {
@@ -77,49 +97,68 @@ impl EXIChannel {
 	    dma_length: 0,
 	    control: EXIChannelControl(0),
 	    devices,
+	    imm_data: 0,
 	}
     }
 
     fn choose_device(&mut self) -> &mut Box<dyn EXIDevice> {
 	match self.params.cs() {
-	    0x1 => &mut self.devices[0],
-	    0x2 => &mut self.devices[1],
-	    0x4 => &mut self.devices[2],
+	    0b001 => &mut self.devices[0],
+	    0b010 => &mut self.devices[1],
+	    0b100 => &mut self.devices[2],
 	    _ => &mut self.devices[0],
 	}
     }
 
     pub fn read(&mut self, reg: u32) -> u32 {
-	let device = self.choose_device();
 	match reg {
 	    0x0 => self.params.0,
+	    0x4 => self.dma_start,
+	    0x8 => self.dma_length,
 	    0xC => self.control.0,
-	    0x10 => device.imm_read(),
-	    _ => unreachable!("EXI Channel reg {reg:#X} read"),
+	    0x10 => self.imm_data,
+	    _ => unreachable!("read from unsupported EXI reg: {reg:#X}"),
 	}
     }
 
     pub fn write(&mut self, reg: u32, val: u32) {
-	let device = self.choose_device();
 	match reg {
 	    0x0 => {
 		self.params = EXIChannelParams(val);
-		let dma = self.control.dma();
-		let rw = self.control.rw();
-		let device = self.choose_device();
-		if dma {
-		    unimplemented!("dma transfer");
-		} else {
-		    if rw == 0x0 {
-			//nothing to do...
-		    } else if rw == 0x1 {
-			device.imm_write();
+		self.choose_device().select();
+		//TODO: make this more like dolphin once interrupts are actually implemented.
+	    },
+	    0x4 => self.dma_start = val,
+	    0x8 => self.dma_length = val,
+	    0xC => {
+		self.control = EXIChannelControl(val);
+		
+		if self.control.t_start() {
+		    if self.control.dma() {
+			unimplemented!("dma transfer :(");
+		    } else {
+			match self.control.rw() {
+			    0 => {
+				debug!("read!");
+				let t_len = self.control.t_len() + 1;
+				self.imm_data = self.choose_device().imm_read(t_len as u32);
+			    },
+			    1 => {
+				debug!("write!");
+				let data = self.imm_data;
+				let t_len = self.control.t_len() + 1;
+				self.choose_device().imm_write(data, t_len as u32);
+			    },
+			    rw => {
+				unimplemented!("unimplemented rw mode {rw:#X}");
+			    },
+			}
 		    }
 		}
-	    },
-	    0xC => self.control = EXIChannelControl(val),
-	    0x10 => device.imm_data_write(val),
-	    _ => unreachable!("EXI Channel reg {reg:#X} with val {val:#X}"),
+		self.control.clear_t_start();
+	    }
+	    0x10 => self.imm_data = val,
+	    _ => unreachable!("write to unsupported EXI reg: {reg:#X} with val {val:#X}"),
 	}
     }
 }
@@ -135,12 +174,20 @@ impl EXIChannelParams {
 	((self.0 >> 1) & 1) != 0
     }
 
+    pub fn clear_exi_int(&mut self) {
+	self.0 &= !(1 << 1);
+    }
+
     pub fn tc_int_mask(&self) -> bool {
 	((self.0 >> 2) & 1) != 0
     }
 
     pub fn tc_int(&self) -> bool {
 	((self.0 >> 3) & 1) != 0
+    }
+
+    pub fn clear_tc_int(&mut self) {
+	self.0 &= !(1 << 3);
     }
 
     pub fn clk(&self) -> usize {
@@ -159,6 +206,10 @@ impl EXIChannelParams {
 	((self.0 >> 11) & 1) != 0
     }
 
+    pub fn clear_ext_int(&mut self) {
+	self.0 &= !(1 << 11);
+    }
+
     pub fn ext(&self) -> bool {
 	((self.0 >> 12) & 1) != 0
     }
@@ -173,6 +224,10 @@ pub struct EXIChannelControl(pub u32);
 impl EXIChannelControl {
     pub fn t_start(&self) -> bool {
 	(self.0 & 1) != 0
+    }
+
+    pub fn clear_t_start(&mut self) {
+	self.0 &= !1;
     }
 
     pub fn dma(&self) -> bool {

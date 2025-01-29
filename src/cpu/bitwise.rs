@@ -16,10 +16,26 @@ pub fn rlwinm(gc: &mut Gamecube, instr: &Instruction) {
     }
 }
 
-pub fn and(gc: &mut Gamecube, instr: &Instruction) {
-    gc.cpu.gprs[instr.s()] = gc.cpu.gprs[instr.a()] & gc.cpu.gprs[instr.b()];
+pub fn or(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()] | gc.cpu.gprs[instr.b()];
 
     if instr.rc() {
-	gc.cpu.do_cr0(gc.cpu.gprs[instr.s()]);
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
+    }
+}
+
+pub fn nor(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = !(gc.cpu.gprs[instr.s()] | gc.cpu.gprs[instr.b()]);
+
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
+    }
+}
+
+pub fn and(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()] & gc.cpu.gprs[instr.b()];
+
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
     }
 }

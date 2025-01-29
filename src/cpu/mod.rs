@@ -10,11 +10,11 @@ pub mod control_flow;
 
 use std::cmp::Ordering;
 
-use arithmetic::{addi, addis, cmpli, subf};
-use bitwise::{and, ori, rlwinm};
+use arithmetic::{addi, addis, cmpi, cmpl, cmpli, subf};
+use bitwise::{and, nor, or, ori, rlwinm};
 use cache::isync;
 use config::{mfmsr, mfspr, mftb, mtmsr, mtspr, mtsr};
-use control_flow::bc;
+use control_flow::{b, bc, bclr};
 use instr::Instruction;
 use load_store::{lwz, sth, stw, stwu};
 use log::{debug, info};
@@ -75,23 +75,29 @@ pub fn step(gc: &mut Gamecube) {
 
     match instruction.opcd() {
 	0b001010 => cmpli(gc, &instruction),
+	0b001011 => cmpi(gc, &instruction),
 	0b001110 => addi(gc, &instruction),
 	0b001111 => addis(gc, &instruction),
 	0b010000 => bc(gc, &instruction),
+	0b010010 => b(gc, &instruction),
 	0b010101 => rlwinm(gc, &instruction),
 	0b011000 => ori(gc, &instruction),
 	0b010011 => match instruction.sec_opcd() {
+	    0b0000010000 => bclr(gc, &instruction),
 	    0b0010010110 => isync(gc, &instruction),
 	    a => unimplemented!("secondary opcode: {a:#012b}, priomary: 0b010011, instruction: {:#034b}", instruction.0),
 	},
 	0b011111 => match instruction.sec_opcd() {
 	    0b0000011100 => and(gc, &instruction),
+	    0b0000100000 => cmpl(gc, &instruction),
 	    0b0000101000 => subf(gc, &instruction),
 	    0b0001010011 => mfmsr(gc, &instruction),
+	    0b0001111100 => nor(gc, &instruction),
 	    0b0010010010 => mtmsr(gc, &instruction),
 	    0b0011010010 => mtsr(gc, &instruction),
 	    0b0101010011 => mfspr(gc, &instruction),
 	    0b0101110011 => mftb(gc, &instruction),
+	    0b0110111100 => or(gc, &instruction),
 	    0b0111010011 => mtspr(gc, &instruction),
 	    a => unimplemented!("secondary opcode: {a:#012b}, primary: 0b011111, instruction: {:#034b}", instruction.0),
 	},

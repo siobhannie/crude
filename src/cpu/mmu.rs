@@ -58,7 +58,7 @@ impl Mmu {
 	    }
 	}
 
-	unimplemented!("page or segment translation :(");
+	unimplemented!("page or segment translation :(, addr: {addr:#010X}");
     }
 }
 

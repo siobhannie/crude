@@ -92,4 +92,8 @@ impl Instruction {
     pub fn bo(&self) -> usize {
 	((self.0 >> 21) & 0x1F) as usize
     }
+
+    pub fn li(&self) -> u32 {
+	(self.0 >> 2) & 0xFF_FFFF
+    }
 }
