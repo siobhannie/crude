@@ -4,3 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+winit = "0.29"
+imgui = { version = "0.12", features = ["tables-api"] }
+imgui-winit-support = "0.12"
+ash = { version = "0.38" }
+ash-window = "0.13"
+image = "0.25"
+imgui-rs-vulkan-renderer = "1.16.0"
+log = "0.4.25"
+simple_logger = "5.0.0"
+crude = { path = "../" }
