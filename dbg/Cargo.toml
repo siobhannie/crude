@@ -14,3 +14,4 @@ imgui-rs-vulkan-renderer = "1.16.0"
 log = "0.4.25"
 simple_logger = "5.0.0"
 crude = { path = "../" }
+ppc750cl = { git = "https://github.com/riptl/ppc750cl" }
