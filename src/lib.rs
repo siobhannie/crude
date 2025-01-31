@@ -16,10 +16,10 @@ pub mod serial_interface;
 pub mod external_interface;
 
 pub struct Gamecube {
-    cpu: Cpu,
-    bios: Vec<u8>,
-    exi: ExternalInterface,
-    memory: Vec<u8>,
+    pub cpu: Cpu,
+    pub bios: Vec<u8>,
+    pub exi: ExternalInterface,
+    pub memory: Vec<u8>,
 }
 
 impl Gamecube {
@@ -73,9 +73,13 @@ impl Gamecube {
     }
 }
 
+pub fn step(gc: &mut Gamecube) {
+    cpu::step(gc);
+}
+
 pub fn run(gc: &mut Gamecube) {
     loop {
-	cpu::step(gc);
+	step(gc);
     }
 }
 

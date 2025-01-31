@@ -8,3 +8,9 @@ byteorder = "1.5.0"
 fern = "0.7.1"
 humantime = "2.1.0"
 log = "0.4.25"
+
+[workspace]
+members = [
+"dbg"
+]
+resolver = "2"

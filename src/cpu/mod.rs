@@ -71,8 +71,6 @@ pub fn step(gc: &mut Gamecube) {
 
     let instruction = Instruction(gc.read_u32(addr, true));
     
-    gc.cpu.nia = gc.cpu.cia.wrapping_add(4);
-
     match instruction.opcd() {
 	0b001010 => cmpli(gc, &instruction),
 	0b001011 => cmpi(gc, &instruction),
@@ -111,6 +109,8 @@ pub fn step(gc: &mut Gamecube) {
     gc.cpu.cia = gc.cpu.nia;
 
     gc.cpu.tb += 1;
+
+    gc.cpu.nia = gc.cpu.cia.wrapping_add(4);
 }
 
 pub fn write_hid0(gc: &mut Gamecube, val: u32) {

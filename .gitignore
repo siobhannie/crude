@@ -1,5 +1,7 @@
 /target
 /get-your-own
+imgui.ini
+Cargo.lock
 
 # i'm an emacs lover :3
 *~
