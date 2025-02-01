@@ -1,3 +1,5 @@
+use std::io::stdin;
+
 use log::debug;
 
 use super::EXIDevice;
@@ -38,7 +40,11 @@ impl EXIDevice for AD16 {
 			
 		    }
 		},
+		0xA2 => {
+		    panic!();
+		},
 		0xA0 => {
+		    panic!();
 		    match self.position {
 			1 => {
 			    self.reg &= !0xFF;
@@ -49,12 +55,16 @@ impl EXIDevice for AD16 {
 			    self.reg |= (*byte as u32) << 8;
 			}
 			3 => {
+			    panic!();
 			    self.reg &= !(0xFF << 16);
 			    self.reg |= (*byte as u32) << 16;
 			},
 			4 => {
+			    panic!();
 			    self.reg &= !(0xFF << 24);
 			    self.reg |= (*byte as u32) << 24;
+			    println!("{:#010X}", self.reg);
+			    stdin().read_line(&mut String::new()).unwrap();
 			}
 			_ => {},
 			
@@ -69,6 +79,8 @@ impl EXIDevice for AD16 {
 
     fn select(&mut self) {
         self.position = 0;
+	self.reg = 0;
+	self.command = 0;
     }
 
     

@@ -6,6 +6,18 @@ use crate::Gamecube;
 
 use super::instr::Instruction;
 
+pub fn add(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.d()] = gc.cpu.gprs[instr.a()].wrapping_add(gc.cpu.gprs[instr.b()]);
+
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.d()]);
+    }
+
+    if instr.oe() {
+	unimplemented!("xer");
+    }
+}
+
 pub fn addi(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.gprs[instr.d()] = if instr.a() == 0 {
 	i32::from(instr.simm()) as u32

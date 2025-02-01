@@ -1,12 +1,14 @@
 #![feature(core_intrinsics)]
 
+use std::sync::Arc;
+
 use audio_interface::ai_write_u16;
 use byteorder::{BigEndian, ByteOrder};
 use cpu::Cpu;
 use external_interface::{exi_read_u32, exi_write_u32, ExternalInterface};
 use memory_interface::mi_write_u16;
 use processor_interface::{pi_read_u32, pi_write_u32};
-use serial_interface::si_write_u32;
+use serial_interface::{si_read_u32, si_write_u32, SerialInterface};
 
 pub mod cpu;
 pub mod audio_interface;
@@ -19,31 +21,30 @@ pub struct Gamecube {
     pub cpu: Cpu,
     pub bios: Vec<u8>,
     pub exi: ExternalInterface,
+    pub si: SerialInterface,
     pub memory: Vec<u8>,
 }
 
 impl Gamecube {
-    pub fn new() -> Self {
+    pub fn new(bios: Vec<u8>) -> Self {
+	let mut bios = bios;
+	descramble(&mut bios[0x100..0x1AFF00]);
 	Self {
 	    cpu: Cpu::new(),
-	    bios: Vec::new(),
-	    exi: ExternalInterface::new(),
+	    bios: bios.clone(),
+	    exi: ExternalInterface::new(bios),
+	    si: SerialInterface::new(),
 	    memory: vec![0; 0x180_0000],
 	}
     }
     
-    pub fn load_bios(&mut self, bios: Vec<u8>) {
-	self.bios = bios;
-
-	descramble(&mut self.bios[0x100..0x1AFF00]);
-    }
-
     pub fn read_u32(&mut self, addr: u32, instr: bool) -> u32 {
 	let phys = self.cpu.mmu.translate_addr(instr, addr, &self.cpu.msr);
 	
 	match phys {
 	    0x0000_0000..=0x017F_FFFF => BigEndian::read_u32(&self.memory[(phys as usize)..]),
 	    0x0C00_3000..=0x0C00_3FFF => pi_read_u32(self, phys - 0x0C00_3000),
+	    0x0C00_6400..=0x0C00_67FF => si_read_u32(self, phys - 0x0C00_6400),
 	    0x0C00_6800..=0x0C00_6BFF => exi_read_u32(self, phys - 0x0C00_6800),
 	    0xFFF0_0000..=0xFFFF_FFFF => BigEndian::read_u32(&self.bios[(phys as usize - 0xFFF0_0000)..]),
 	    _ => unimplemented!("addr {phys:#010X} for read_u32"),

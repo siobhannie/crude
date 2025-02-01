@@ -9,9 +9,9 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
     File::open(ipl_path.to_string()).unwrap().read_to_end(&mut bios_data).unwrap();
     let (tx, rx) = channel();
     let (tx_m, rx_m) = channel();
+    let mut breakpoints = Vec::new();
     thread::spawn(move || {
-	let mut gamecube = Gamecube::new();
-	gamecube.load_bios(bios_data);
+	let mut gamecube = Gamecube::new(bios_data);
 
 	processor_state.update(&mut gamecube);
 	update_instruction_buffer(&mut gamecube, &instruction_buffer);
@@ -20,9 +20,14 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
 	    let result = catch_unwind(AssertUnwindSafe(|| {
 		match rx.recv().unwrap() {
 		    Command::Run => {
-			loop {
-			    for _ in 0..500000 {
+			'shmeep: loop {
+			    for _ in 0..2000 {
 				crude::step(&mut gamecube);
+				for breakpoint in breakpoints.iter() {
+				    if gamecube.cpu.cia == *breakpoint {
+					break 'shmeep;
+				    }
+				}
 			    }
 
 			    if let Ok(Command::Stop) = rx.try_recv() {
@@ -37,6 +42,9 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
 			processor_state.update(&mut gamecube);
 			crude::step(&mut gamecube);
 		    },
+		    Command::Breakpoint(addr) => {
+			breakpoints.push(addr);
+		    }
 		    Command::Stop => {},
 		}
 	    }));
@@ -89,6 +97,7 @@ pub enum Command {
     Run,
     Step,
     Stop,
+    Breakpoint(u32),
 }
 
 pub enum Message {

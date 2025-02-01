@@ -10,7 +10,7 @@ pub mod control_flow;
 
 use std::cmp::Ordering;
 
-use arithmetic::{addi, addis, cmpi, cmpl, cmpli, subf};
+use arithmetic::{add, addi, addis, cmpi, cmpl, cmpli, subf};
 use bitwise::{and, nor, or, ori, rlwinm};
 use cache::isync;
 use config::{mfmsr, mfspr, mftb, mtmsr, mtspr, mtsr};
@@ -93,6 +93,7 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0001111100 => nor(gc, &instruction),
 	    0b0010010010 => mtmsr(gc, &instruction),
 	    0b0011010010 => mtsr(gc, &instruction),
+	    0b0100001010 => add(gc, &instruction),
 	    0b0101010011 => mfspr(gc, &instruction),
 	    0b0101110011 => mftb(gc, &instruction),
 	    0b0110111100 => or(gc, &instruction),

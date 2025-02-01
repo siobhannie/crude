@@ -1,3 +1,5 @@
+use log::debug;
+
 use super::EXIDevice;
 
 pub struct NullDevice;
@@ -9,6 +11,6 @@ impl EXIDevice for NullDevice {
     }
 
     fn select(&mut self) {
-	panic!("select called for null device!");
+	debug!("select called for null device!");
     }
 }

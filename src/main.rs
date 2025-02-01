@@ -18,11 +18,9 @@ fn main() {
         .level(LevelFilter::Debug)
         .chain(stdout())
         .apply().unwrap();
-    
-    let mut gamecube = Gamecube::new();
     let bios_path = env::args().nth(1).unwrap();
     let mut bios_data = Vec::new();
     File::open(bios_path).unwrap().read_to_end(&mut bios_data).unwrap();
-    gamecube.load_bios(bios_data);
+    let mut gamecube = Gamecube::new(bios_data);
     crude::run(&mut gamecube);
 }

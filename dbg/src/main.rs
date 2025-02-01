@@ -18,7 +18,7 @@ fn main() {
     let processor_state = Arc::new(SharedProcessorState::new());
     let (emu_commander, emu_messages) = start_emu(env::args().nth(1).unwrap(), instruction_buffer.clone(), processor_state.clone());
     simple_logger::SimpleLogger::new().with_level(LevelFilter::Debug).init().unwrap();
-    let mut message = String::from("Waiting...");
+    let mut breakpoint_text = String::new();
     System::new("shmeeeep :3").unwrap().run((), move |_, ui, _| {
 	ui.window("Emu control")
 	    .size([300.0, 110.0], Condition::FirstUseEver)
@@ -33,6 +33,13 @@ fn main() {
 		ui.same_line();
 		if ui.button("Stop") {
 		    emu_commander.send(Command::Stop).unwrap();
+		}
+
+		ui.input_text("Breakpoint Addr", &mut breakpoint_text).always_overwrite(true).chars_hexadecimal(true).build();
+		ui.same_line();
+		if ui.button("Add") {
+		    let addr = u32::from_str_radix(breakpoint_text.trim_start_matches("0x"), 16).unwrap();
+		    emu_commander.send(Command::Breakpoint(addr)).unwrap();
 		}
 	    });
 

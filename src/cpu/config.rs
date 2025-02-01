@@ -38,6 +38,7 @@ pub fn mfspr(gc: &mut Gamecube, instr: &Instruction) {
     let spr = instr.spr();
 
     gc.cpu.gprs[instr.d()] = match spr {
+	0b00000_01000 => gc.cpu.lr,
 	0b11111_10000 => gc.cpu.hid0,
 	a => unimplemented!("mfspr {a:#012b}, instruction {:#034b}", instr.0),
     };
