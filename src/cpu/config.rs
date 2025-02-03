@@ -24,7 +24,9 @@ pub fn mtspr(gc: &mut Gamecube, instr: &Instruction) {
 	0b10000_11100 => gc.cpu.mmu.write_dbatu(2, val),
 	0b10000_11101 => gc.cpu.mmu.write_dbatl(2, val),
 	0b10000_11110 => gc.cpu.mmu.write_dbatu(3, val),
-	0b10000_11111 => gc.cpu.mmu.write_dbatl(3, val),	
+	0b10000_11111 => gc.cpu.mmu.write_dbatl(3, val),
+	0b11100_11000 => gc.cpu.hid2 = val,
+	0b11100_11001 => gc.cpu.wpar = val,
 	0b11111_10000 => gc.cpu.hid0 = val,
 	a => unimplemented!("mtspr {a:#012b}, instruction: {:#034b}", instr.0),
     }
@@ -39,6 +41,8 @@ pub fn mfspr(gc: &mut Gamecube, instr: &Instruction) {
 
     gc.cpu.gprs[instr.d()] = match spr {
 	0b00000_01000 => gc.cpu.lr,
+	0b11100_11000 => gc.cpu.hid2,
+	0b11100_11001 => gc.cpu.wpar,
 	0b11111_10000 => gc.cpu.hid0,
 	a => unimplemented!("mfspr {a:#012b}, instruction {:#034b}", instr.0),
     };

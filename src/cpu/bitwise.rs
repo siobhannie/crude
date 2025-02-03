@@ -7,6 +7,11 @@ pub fn ori(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.gprs[instr.a()] = val | instr.uimm() as u32;
 }
 
+pub fn oris(gc: &mut Gamecube, instr: &Instruction) {
+    let val = gc.cpu.gprs[instr.s()];
+    gc.cpu.gprs[instr.a()] = val | ((instr.uimm() as u32) << 16);
+}
+
 pub fn rlwinm(gc: &mut Gamecube, instr: &Instruction) {
     let val = gc.cpu.gprs[instr.s()];
     let rotated = val.rotate_left(instr.sh() as u32);

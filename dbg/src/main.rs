@@ -7,7 +7,7 @@ use std::{env, sync::{atomic::{AtomicU32, Ordering}, Arc}};
 use backend::{start_emu, Command, Message, SharedInstructionBuffer, SharedProcessorState};
 use disassembler::disassemble;
 use ext::System;
-use imgui::{Condition, ImColor32, StyleColor};
+use imgui::{Condition, ImColor32, InputTextCallback, StyleColor};
 use log::LevelFilter;
 use ppc750cl::Ins;
 
@@ -21,7 +21,7 @@ fn main() {
     let mut breakpoint_text = String::new();
     System::new("shmeeeep :3").unwrap().run((), move |_, ui, _| {
 	ui.window("Emu control")
-	    .size([300.0, 110.0], Condition::FirstUseEver)
+	    .size([500.0, 110.0], Condition::FirstUseEver)
 	    .build(|| {
 		if ui.button("Step") {
 		    emu_commander.send(Command::Step).unwrap();
@@ -38,7 +38,7 @@ fn main() {
 		ui.input_text("Breakpoint Addr", &mut breakpoint_text).always_overwrite(true).chars_hexadecimal(true).build();
 		ui.same_line();
 		if ui.button("Add") {
-		    let addr = u32::from_str_radix(breakpoint_text.trim_start_matches("0x"), 16).unwrap();
+		    let addr = u32::from_str_radix(&breakpoint_text, 16).unwrap();
 		    emu_commander.send(Command::Breakpoint(addr)).unwrap();
 		}
 	    });

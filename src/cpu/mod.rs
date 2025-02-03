@@ -11,7 +11,7 @@ pub mod control_flow;
 use std::cmp::Ordering;
 
 use arithmetic::{add, addi, addis, cmpi, cmpl, cmpli, subf};
-use bitwise::{and, nor, or, ori, rlwinm};
+use bitwise::{and, nor, or, ori, oris, rlwinm};
 use cache::isync;
 use config::{mfmsr, mfspr, mftb, mtmsr, mtspr, mtsr};
 use control_flow::{b, bc, bclr};
@@ -28,6 +28,8 @@ pub struct Cpu {
     pub gprs: [u32; 32],
     pub mmu: Mmu,
     pub hid0: u32,
+    pub hid2: u32,
+    pub wpar: u32,
     pub msr: MachineStateRegister,
     pub tb: u64,
     pub cr: ConditionRegister,
@@ -43,6 +45,8 @@ impl Cpu {
 	    gprs: [0; 32],
 	    mmu: Mmu::new(),
 	    hid0: 0,
+	    hid2: 0,
+	    wpar: 0,
 	    msr: MachineStateRegister(0),
 	    tb: 0,
 	    cr: ConditionRegister(0),
@@ -80,6 +84,7 @@ pub fn step(gc: &mut Gamecube) {
 	0b010010 => b(gc, &instruction),
 	0b010101 => rlwinm(gc, &instruction),
 	0b011000 => ori(gc, &instruction),
+	0b011001 => oris(gc, &instruction),
 	0b010011 => match instruction.sec_opcd() {
 	    0b0000010000 => bclr(gc, &instruction),
 	    0b0010010110 => isync(gc, &instruction),
@@ -98,6 +103,7 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0101110011 => mftb(gc, &instruction),
 	    0b0110111100 => or(gc, &instruction),
 	    0b0111010011 => mtspr(gc, &instruction),
+	    0b1001010110 => {}, //sync
 	    a => unimplemented!("secondary opcode: {a:#012b}, primary: 0b011111, instruction: {:#034b}", instruction.0),
 	},
 	0b100000 => lwz(gc, &instruction),

@@ -17,7 +17,7 @@ use std::{
 };
 use winit::{
     dpi::PhysicalSize,
-    event::{Event, WindowEvent},
+    event::{ElementState, Event, KeyEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::{Window, WindowBuilder},
@@ -174,7 +174,11 @@ impl<A: App> System<A> {
             // Make sure Renderer is moved before VulkanContext and therefore dropped before
             let renderer = &mut renderer;
 
-            platform.handle_event(imgui.io_mut(), &window, &event);
+	    //this fixes my issue with double input in input_texts lmfao
+	    //there's probably a proper solution to that but this works for now
+	    if let Event::WindowEvent { event: WindowEvent::KeyboardInput {event: KeyEvent { state: ElementState::Released, .. }, ..}, .. } = event {} else {
+		platform.handle_event(imgui.io_mut(), &window, &event);
+	    }
 
             match event {
                 // New frame
