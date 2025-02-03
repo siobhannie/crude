@@ -96,4 +96,16 @@ impl Instruction {
     pub fn li(&self) -> u32 {
 	(self.0 >> 2) & 0xFF_FFFF
     }
+
+    pub fn uimm_d(&self) -> u16 {
+	(self.0 & 0xFFF) as u16
+    }
+
+    pub fn i(&self) -> usize {
+	((self.0 >> 12) & 0x7) as usize
+    }
+
+    pub fn w(&self) -> bool {
+	((self.0 >> 15) & 1) != 0
+    }
 }

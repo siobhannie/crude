@@ -17,7 +17,7 @@ pub fn rlwinm(gc: &mut Gamecube, instr: &Instruction) {
     let rotated = val.rotate_left(instr.sh() as u32);
     gc.cpu.gprs[instr.a()] = rotated & mask(instr.mb(), instr.me());
     if instr.rc() {
-	unimplemented!("cr0!");
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
     }
 }
 

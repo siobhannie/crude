@@ -1,4 +1,5 @@
 pub mod instr;
+pub mod float;
 pub mod arithmetic;
 pub mod config;
 pub mod load_store;
@@ -15,8 +16,9 @@ use bitwise::{and, nor, or, ori, oris, rlwinm};
 use cache::isync;
 use config::{mfmsr, mfspr, mftb, mtmsr, mtspr, mtsr};
 use control_flow::{b, bc, bclr};
+use float::{ps_mr, fmr};
 use instr::Instruction;
-use load_store::{lwz, sth, stw, stwu};
+use load_store::{lfd, lwz, psq_l, sth, stw, stwu};
 use log::{debug, info};
 use mmu::Mmu;
 
@@ -28,8 +30,10 @@ pub struct Cpu {
     pub gprs: [u32; 32],
     pub mmu: Mmu,
     pub hid0: u32,
-    pub hid2: u32,
+    pub hid2: HID2,
     pub wpar: u32,
+    pub gqrs: [GraphicsQuantizationRegister; 8],
+    pub fprs: [FloatingPointRegister; 32],
     pub msr: MachineStateRegister,
     pub tb: u64,
     pub cr: ConditionRegister,
@@ -45,8 +49,10 @@ impl Cpu {
 	    gprs: [0; 32],
 	    mmu: Mmu::new(),
 	    hid0: 0,
-	    hid2: 0,
+	    hid2: HID2(0),
 	    wpar: 0,
+	    gqrs: [GraphicsQuantizationRegister(0); 8],
+	    fprs: [FloatingPointRegister::from_u64(0); 32],
 	    msr: MachineStateRegister(0),
 	    tb: 0,
 	    cr: ConditionRegister(0),
@@ -76,6 +82,7 @@ pub fn step(gc: &mut Gamecube) {
     let instruction = Instruction(gc.read_u32(addr, true));
     
     match instruction.opcd() {
+	0b000100 => ps_mr(gc, &instruction),
 	0b001010 => cmpli(gc, &instruction),
 	0b001011 => cmpi(gc, &instruction),
 	0b001110 => addi(gc, &instruction),
@@ -110,6 +117,12 @@ pub fn step(gc: &mut Gamecube) {
 	0b100100 => stw(gc, &instruction),
 	0b100101 => stwu(gc, &instruction),
 	0b101100 => sth(gc, &instruction),
+	0b110010 => lfd(gc, &instruction),
+	0b111000 => psq_l(gc, &instruction),
+	0b111111 => match instruction.sec_opcd() {
+	    0b0001001000 => fmr(gc, &instruction),
+	    a => unimplemented!("secondary opcode {a:#012b}, primary: 0b111111, instruction: {:#034b}", instruction.0),
+	}
 	a => unimplemented!("opcode: {a:#08b}, instruction: {:#034b}", instruction.0),
     }
     
@@ -151,5 +164,134 @@ pub struct ConditionRegister(pub u32);
 impl ConditionRegister {
     pub fn set_reg(&mut self, index: usize, val: u32) {
 	self.0 = (self.0 & (!(0xF000_0000 >> (index * 4)))) | (val << ((7 - index) * 4));
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct GraphicsQuantizationRegister(pub u32);
+
+impl GraphicsQuantizationRegister {
+    pub fn st_type(&self) -> usize {
+	(self.0 & 0x7) as usize
+    }
+
+    pub fn st_scale(&self) -> usize {
+	((self.0 >> 8) & 0x3F) as usize
+    }
+
+    pub fn ld_type(&self) -> usize {
+	((self.0 >> 16) & 0x7) as usize
+    }
+
+    pub fn ld_scale(&self) -> usize {
+	((self.0 >> 24) & 0x3F) as usize
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union FloatingPointRegister {
+    pub ps_i: (u32, u32),
+    pub ps_f: (f32, f32),
+    pub double: f64,
+    pub int: u64,
+}
+
+//i don't know if i need all of these fields and methods but i kinda zoned out while writing them and now they're here so might as well keep them
+impl FloatingPointRegister {
+    pub fn from_paired_u32(ints: (u32, u32)) -> Self {
+	Self {
+	    ps_i: ints
+	}
+    }
+
+    pub fn from_paired_f32(floats: (f32, f32)) -> Self {
+	Self {
+	    ps_f: floats
+	}
+    }
+
+    pub fn from_f64(double: f64) -> Self {
+	Self {
+	    double,
+	}
+    }
+
+    pub fn from_u64(int: u64) -> Self {
+	Self {
+	    int,
+	}
+    }
+    
+    pub fn as_paired_u32(&self) -> &(u32, u32) {
+	unsafe {
+	    &self.ps_i
+	}
+    }
+
+    pub fn as_paired_u32_mut(&mut self) -> &mut (u32, u32) {
+	unsafe {
+	    &mut self.ps_i
+	}
+    }
+
+    pub fn as_paired_f32(&self) -> &(f32, f32) {
+	unsafe {
+	    &self.ps_f
+	}
+    }
+
+    pub fn as_paired_f32_mut(&mut self) -> &mut (f32, f32) {
+	unsafe {
+	    &mut self.ps_f
+	}
+    }
+
+    pub fn as_f64(&self) -> &f64 {
+	unsafe {
+	    &self.double
+	}
+    }
+
+    pub fn as_f64_mut(&mut self) -> &mut f64 {
+	unsafe {
+	    &mut self.double
+	}
+    }
+
+    pub fn as_u64(&self) -> &u64 {
+	unsafe {
+	    &self.int
+	}
+    }
+
+    pub fn as_u64_mut(&mut self) -> &mut u64 {
+	unsafe {
+	    &mut self.int
+	}
+    }
+}
+
+pub struct HID2(pub u32);
+
+impl HID2 {
+    pub fn lsqe(&self) -> bool {
+	((self.0 >> 31) & 1) != 0
+    }
+
+    pub fn wpe(&self) -> bool {
+	((self.0 >> 30) & 1) != 0
+    }
+
+    pub fn pse(&self) -> bool {
+	((self.0 >> 29) & 1) != 0
+    }
+
+    pub fn lce(&self) -> bool {
+	((self.0 >> 28) & 1) != 0
+    }
+
+    pub fn dmaql(&self) -> usize {
+	((self.0 >> 24) & 0xF) as usize
     }
 }

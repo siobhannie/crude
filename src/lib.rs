@@ -37,6 +37,24 @@ impl Gamecube {
 	    memory: vec![0; 0x180_0000],
 	}
     }
+
+    pub fn read_u8(&mut self, addr: u32) -> u8 {
+	let phys = self.cpu.mmu.translate_addr(false, addr, &self.cpu.msr);
+
+	match phys {
+	    0x0000_0000..=0x017F_FFFF => self.memory[phys as usize],
+	    _ => unimplemented!("addr {phys:#010X} for read_u8"),
+	}
+    }
+
+    pub fn read_u16(&mut self, addr: u32) -> u16 {
+	let phys = self.cpu.mmu.translate_addr(false, addr, &self.cpu.msr);
+
+	match phys {
+	    0x0000_0000..=0x017F_FFFF => BigEndian::read_u16(&self.memory[(phys as usize)..]),
+	    _ => unimplemented!("addr {phys:#010X} for read_u16"),
+	}
+    }
     
     pub fn read_u32(&mut self, addr: u32, instr: bool) -> u32 {
 	let phys = self.cpu.mmu.translate_addr(instr, addr, &self.cpu.msr);
@@ -48,6 +66,15 @@ impl Gamecube {
 	    0x0C00_6800..=0x0C00_6BFF => exi_read_u32(self, phys - 0x0C00_6800),
 	    0xFFF0_0000..=0xFFFF_FFFF => BigEndian::read_u32(&self.bios[(phys as usize - 0xFFF0_0000)..]),
 	    _ => unimplemented!("addr {phys:#010X} for read_u32"),
+	}
+    }
+
+    pub fn read_u64(&mut self, addr: u32) -> u64 {
+	let phys = self.cpu.mmu.translate_addr(false, addr, &self.cpu.msr);
+
+	match phys {
+	    0x0000_0000..=0x017F_FFFF => BigEndian::read_u64(&self.memory[(phys as usize)..]),
+	    _ => unimplemented!("addr {phys:#010X} for read_u64"),
 	}
     }
 
