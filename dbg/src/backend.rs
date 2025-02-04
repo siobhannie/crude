@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, panic::{catch_unwind, AssertUnwindSafe}, path::PathBuf, sync::{atomic::{AtomicU32, Ordering}, mpsc::{channel, Receiver, Sender}, Arc}, thread};
+use std::{collections::HashSet, fs::File, io::Read, panic::{catch_unwind, AssertUnwindSafe}, path::PathBuf, sync::{atomic::{AtomicU32, Ordering}, mpsc::{channel, Receiver, Sender}, Arc}, thread};
 
 use crude::Gamecube;
 
@@ -9,7 +9,7 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
     File::open(ipl_path.to_string()).unwrap().read_to_end(&mut bios_data).unwrap();
     let (tx, rx) = channel();
     let (tx_m, rx_m) = channel();
-    let mut breakpoints = Vec::new();
+    let mut breakpoints = HashSet::new();
     thread::spawn(move || {
 	let mut gamecube = Gamecube::new(bios_data);
 
@@ -23,10 +23,8 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
 			'shmeep: loop {
 			    for _ in 0..2000 {
 				crude::step(&mut gamecube);
-				for breakpoint in breakpoints.iter() {
-				    if gamecube.cpu.cia == *breakpoint {
-					break 'shmeep;
-				    }
+				if breakpoints.contains(gc.cpu.nia) {
+				    break 'shmeep;
 				}
 			    }
 

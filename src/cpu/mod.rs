@@ -22,6 +22,9 @@ use load_store::{lfd, lwz, psq_l, sth, stw, stwu};
 use log::{debug, info};
 use mmu::Mmu;
 
+pub const RESET_EXCEPTION: u32   = 0x1;
+pub const PROGRAM_EXCEPTION: u32 = 0x2;
+
 use crate::Gamecube;
 
 pub struct Cpu {
@@ -39,6 +42,9 @@ pub struct Cpu {
     pub cr: ConditionRegister,
     pub ctr: u32,
     pub lr: u32,
+    pub srr0: u32,
+    pub srr1: u32,
+    pub exceptions: u32,
 }
 
 impl Cpu {
@@ -58,6 +64,9 @@ impl Cpu {
 	    cr: ConditionRegister(0),
 	    ctr: 0,
 	    lr: 0,
+	    srr0: 0,
+	    srr1: 0,
+	    exceptions: 0,
 	}
     }
 
@@ -73,6 +82,25 @@ impl Cpu {
 	//xer here :3
 
 	self.cr.set_reg(0, order);
+    }
+
+    pub fn exception(&mut self) {
+	if self.exceptions & RESET_EXCEPTION != 0 {
+	    if self.msr.ip() {
+		self.cia = 0xFFF0_0100;
+	    } else {
+		self.cia = 0x100;
+	    }
+
+	    self.exceptions &= !RESET_EXCEPTION;
+	} else if self.exceptions & PROGRAM_EXCEPTION != 0 {
+	    self.srr0 = self.nia;
+	    self.srr1 = self.msr.0 & 0x87C0_FFFF;
+	    self.msr.set_le(self.msr.ile());
+	    self.msr.0 &= !0x04EF36;
+
+	    self.exceptions &= !PROGRAM_EXCEPTION;
+	}
     }
 }
 
@@ -146,8 +174,48 @@ pub fn write_msr(gc: &mut Gamecube, val: u32) {
 pub struct MachineStateRegister(pub u32);
 
 impl MachineStateRegister {
+    pub fn pow(&self) -> bool {
+	((self.0 >> 18) & 1) != 0
+    }
+
+    pub fn ile(&self) -> bool {
+	((self.0 >> 16) & 1) != 0
+    }
+
+    pub fn ee(&self) -> bool {
+	((self.0 >> 15) & 1) != 0
+    }
+    
     pub fn pr(&self) -> bool {
 	((self.0 >> 14) & 1) != 0
+    }
+
+    pub fn fp(&self) -> bool {
+	((self.0 >> 13) & 1) != 0
+    }
+
+    pub fn me(&self) -> bool {
+	((self.0 >> 12) & 1) != 0
+    }
+
+    pub fn fe0(&self) -> bool {
+	((self.0 >> 11) & 1) != 0
+    }
+
+    pub fn se(&self) -> bool {
+	((self.0 >> 10) & 1) != 0
+    }
+
+    pub fn be(&self) -> bool {
+	((self.0 >> 9) & 1) != 0
+    }
+
+    pub fn fe1(&self) -> bool {
+	((self.0 >> 8) & 1) != 0
+    }
+
+    pub fn ip(&self) -> bool {
+	((self.0 >> 6) & 1) != 0
     }
 
     pub fn ir(&self) -> bool {
@@ -156,6 +224,22 @@ impl MachineStateRegister {
 
     pub fn dr(&self) -> bool {
 	((self.0 >> 4) & 1) != 0
+    }
+
+    pub fn pm(&self) -> bool {
+	((self.0 >> 2) & 1) != 0
+    }
+
+    pub fn ri(&self) -> bool {
+	((self.0 >> 1) & 1) != 0
+    }
+
+    pub fn le(&self) -> bool {
+	(self.0 & 1) != 0
+    }
+
+    pub fn set_le(&mut self, val: bool) {
+	self.0 = (self.0 & !1) | (val as u32);
     }
 }
 
