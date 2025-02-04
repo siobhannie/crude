@@ -379,3 +379,111 @@ impl HID2 {
 	((self.0 >> 24) & 0xF) as usize
     }
 }
+
+pub struct FloatingPointStatusControlRegister(pub u32);
+
+impl FloatingPointStatusControlRegister {
+    pub fn rn(&self) -> usize {
+	(self.0 & 0x3) as usize
+    }
+
+    pub fn ni(&self) -> bool {
+	((self.0 >> 2) & 1) != 0
+    }
+
+    pub fn xe(&self) -> bool {
+	((self.0 >> 3) & 1) != 0
+    }
+
+    pub fn ze(&self) -> bool {
+	((self.0 >> 4) & 1) != 0
+    }
+
+    pub fn ue(&self) -> bool {
+	((self.0 >> 5) & 1) != 0
+    }
+
+    pub fn oe(&self) -> bool {
+	((self.0 >> 6) & 1) != 0
+    }
+
+    pub fn ve(&self) -> bool {
+	((self.0 >> 7) & 1) != 0
+    }
+
+    pub fn vxcvi(&self) -> bool {
+	((self.0 >> 8) & 1) != 0
+    }
+
+    pub fn vxsqrt(&self) -> bool {
+	((self.0 >> 9) & 1) != 0
+    }
+
+    pub fn vxsoft(&self) -> bool {
+	((self.0 >> 10) & 1) != 0
+    }
+
+    pub fn fprf(&self) -> usize {
+	((self.0 >> 12) & 0x1F) as usize
+    }
+
+    pub fn fi(&self) -> bool {
+	((self.0 >> 17) & 1) != 0 
+    }
+
+    pub fn fr(&self) -> bool {
+	((self.0 >> 18) & 1) != 0
+    }
+
+    pub fn vxvc(&self) -> bool {
+	((self.0 >> 19) & 1) != 0
+    }
+
+    pub fn vximz(&self) -> bool {
+	((self.0 >> 20) & 1) != 0
+    }
+
+    pub fn vxzdz(&self) -> bool {
+	((self.0 >> 21) & 1) != 0
+    }
+
+    pub fn vxidi(&self) -> bool {
+	((self.0 >> 22) & 1) != 0
+    }
+
+    pub fn vxisi(&self) -> bool {
+	((self.0 >> 23) & 1) != 0
+    }
+
+    pub fn vxsnan(&self) -> bool {
+	((self.0 >> 24) & 1) != 0
+    }
+
+    pub fn xx(&self) -> bool {
+	((self.0 >> 25) & 1) != 0
+    }
+
+    pub fn zx(&self) -> bool {
+	((self.0 >> 26) & 1) != 0
+    }
+
+    pub fn ux(&self) -> bool {
+	((self.0 >> 27) & 1) != 0
+    }
+
+    pub fn ox(&self) -> bool {
+	((self.0 >> 28) & 1) != 0
+    }
+
+    pub fn vx(&self) -> bool {
+	((self.0 >> 29) & 1) != 0
+    }
+
+    pub fn fex(&self) -> bool {
+	((self.0 >> 30) & 1) != 0
+    }
+
+    pub fn fx(&self) -> bool {
+	((self.0 >> 31) & 1) != 0
+    }
+}
