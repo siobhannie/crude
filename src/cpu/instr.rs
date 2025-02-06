@@ -59,7 +59,7 @@ impl Instruction {
     pub fn tbr(&self) -> usize {
 	(((self.0 >> 6) & 0x3E0) | ((self.0 >> 16) & 0x1F)) as usize
     }
-
+    
     pub fn oe(&self) -> bool {
 	((self.0 >> 10) & 1) != 0
     }
@@ -107,5 +107,9 @@ impl Instruction {
 
     pub fn w(&self) -> bool {
 	((self.0 >> 15) & 1) != 0
+    }
+
+    pub fn fm(&self) -> usize {
+	((self.0 >> 17) & 0xFF) as usize
     }
 }

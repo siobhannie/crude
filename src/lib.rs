@@ -1,4 +1,5 @@
 #![feature(core_intrinsics)]
+#![feature(bigint_helper_methods)]
 
 use std::sync::Arc;
 
@@ -97,6 +98,15 @@ impl Gamecube {
 	    0x0C00_6400..=0x0C00_67FF => si_write_u32(self, phys - 0x0C00_6400, val),
 	    0x0C00_6800..=0x0C00_6BFF => exi_write_u32(self, phys - 0x0C00_6800, val),
 	    _ => unimplemented!("addr {phys:#010X} for write_u32"),
+	}
+    }
+
+    pub fn write_u64(&mut self, addr: u32, val: u64) {
+	let phys = self.cpu.mmu.translate_addr(false, addr, &self.cpu.msr);
+
+	match phys {
+	    0x0000_0000..=0x017F_FFFF => BigEndian::write_u64(&mut self.memory[(phys as usize)..], val),
+	    _ => unimplemented!("addr {phys:#010X} for write_u64"),
 	}
     }
 }

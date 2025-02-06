@@ -11,14 +11,14 @@ pub mod control_flow;
 
 use std::cmp::Ordering;
 
-use arithmetic::{add, addi, addis, cmpi, cmpl, cmpli, subf};
-use bitwise::{and, nor, or, ori, oris, rlwinm};
+use arithmetic::{add, addc, adde, addi, addic, addicr, addis, cmp, cmpi, cmpl, cmpli, subf};
+use bitwise::{and, crxor, nor, or, ori, oris, rlwinm};
 use cache::isync;
-use config::{mfmsr, mfspr, mftb, mtmsr, mtspr, mtsr};
+use config::{mffs, mfmsr, mfspr, mftb, mtfsf, mtmsr, mtspr, mtsr};
 use control_flow::{b, bc, bclr};
 use float::{ps_mr, fmr};
 use instr::Instruction;
-use load_store::{lfd, lwz, psq_l, sth, stw, stwu};
+use load_store::{lfd, lwz, psq_l, stfd, sth, stw, stwu};
 use log::{debug, info};
 use mmu::Mmu;
 
@@ -45,6 +45,12 @@ pub struct Cpu {
     pub srr0: u32,
     pub srr1: u32,
     pub exceptions: u32,
+    pub fpscr: FloatingPointStatusControlRegister,
+    pub l2cr: u32,
+    pub xer: XER,
+    pub pmcs: [u32; 4],
+    pub mmcr0: u32,
+    pub mmcr1: u32,
 }
 
 impl Cpu {
@@ -67,6 +73,12 @@ impl Cpu {
 	    srr0: 0,
 	    srr1: 0,
 	    exceptions: 0,
+	    fpscr: FloatingPointStatusControlRegister(0),
+	    l2cr: 0,
+	    xer: XER(0),
+	    pmcs: [0; 4],
+	    mmcr0: 0,
+	    mmcr1: 0,
 	}
     }
 
@@ -113,6 +125,8 @@ pub fn step(gc: &mut Gamecube) {
 	0b000100 => ps_mr(gc, &instruction),
 	0b001010 => cmpli(gc, &instruction),
 	0b001011 => cmpi(gc, &instruction),
+	0b001100 => addic(gc, &instruction),
+	0b001101 => addicr(gc, &instruction),
 	0b001110 => addi(gc, &instruction),
 	0b001111 => addis(gc, &instruction),
 	0b010000 => bc(gc, &instruction),
@@ -123,14 +137,18 @@ pub fn step(gc: &mut Gamecube) {
 	0b010011 => match instruction.sec_opcd() {
 	    0b0000010000 => bclr(gc, &instruction),
 	    0b0010010110 => isync(gc, &instruction),
-	    a => unimplemented!("secondary opcode: {a:#012b}, priomary: 0b010011, instruction: {:#034b}", instruction.0),
+	    0b0011000001 => crxor(gc, &instruction),
+	    a => unimplemented!("secondary opcode: {a:#012b}, primary: 0b010011, instruction: {:#034b}", instruction.0),
 	},
 	0b011111 => match instruction.sec_opcd() {
+	    0b0000000000 => cmp(gc, &instruction),
+	    0b0000001010 => addc(gc, &instruction),
 	    0b0000011100 => and(gc, &instruction),
 	    0b0000100000 => cmpl(gc, &instruction),
 	    0b0000101000 => subf(gc, &instruction),
 	    0b0001010011 => mfmsr(gc, &instruction),
 	    0b0001111100 => nor(gc, &instruction),
+	    0b0010001010 => adde(gc, &instruction),
 	    0b0010010010 => mtmsr(gc, &instruction),
 	    0b0011010010 => mtsr(gc, &instruction),
 	    0b0100001010 => add(gc, &instruction),
@@ -146,9 +164,12 @@ pub fn step(gc: &mut Gamecube) {
 	0b100101 => stwu(gc, &instruction),
 	0b101100 => sth(gc, &instruction),
 	0b110010 => lfd(gc, &instruction),
+	0b110110 => stfd(gc, &instruction),
 	0b111000 => psq_l(gc, &instruction),
 	0b111111 => match instruction.sec_opcd() {
 	    0b0001001000 => fmr(gc, &instruction),
+	    0b1001000111 => mffs(gc, &instruction),
+	    0b1011000111 => mtfsf(gc, &instruction),
 	    a => unimplemented!("secondary opcode {a:#012b}, primary: 0b111111, instruction: {:#034b}", instruction.0),
 	}
 	a => unimplemented!("opcode: {a:#08b}, instruction: {:#034b}", instruction.0),
@@ -248,6 +269,10 @@ pub struct ConditionRegister(pub u32);
 impl ConditionRegister {
     pub fn set_reg(&mut self, index: usize, val: u32) {
 	self.0 = (self.0 & (!(0xF000_0000 >> (index * 4)))) | (val << ((7 - index) * 4));
+    }
+    
+    pub fn get_reg(&self, index: usize) -> usize {
+	((self.0 >> (28 - (index * 4))) & 0xF) as usize 
     }
 }
 
@@ -484,6 +509,30 @@ impl FloatingPointStatusControlRegister {
     }
 
     pub fn fx(&self) -> bool {
+	((self.0 >> 31) & 1) != 0
+    }
+}
+
+pub struct XER(pub u32);
+
+impl XER {
+    pub fn byte_count(&self) -> usize {
+	(self.0 & 0x7F) as usize
+    }
+
+    pub fn ca(&self) -> bool {
+	((self.0 >> 29) & 1) != 0
+    }
+
+    pub fn set_ca(&mut self, val: bool) {
+	self.0 = (self.0 & !(1 << 29)) | ((val as u32) << 29);
+    }
+
+    pub fn ov(&self) -> bool {
+	((self.0 >> 30) & 1) != 0
+    }
+
+    pub fn so(&self) -> bool {
 	((self.0 >> 31) & 1) != 0
     }
 }

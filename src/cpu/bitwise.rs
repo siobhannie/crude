@@ -44,3 +44,7 @@ pub fn and(gc: &mut Gamecube, instr: &Instruction) {
 	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
     }
 }
+
+pub fn crxor(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.cr.set_reg(instr.d(), (gc.cpu.cr.get_reg(instr.a()) as u32) ^ (gc.cpu.cr.get_reg(instr.b()) as u32));
+}

@@ -9,7 +9,7 @@ fn b(gc: &mut Gamecube, instr: &Instruction) -> u32 {
 	0
     } else {
 	gc.cpu.gprs[instr.a()]
-    } as i32) + instr.simm() as i32) as u32
+    } as i32).wrapping_add(instr.simm() as i32)) as u32
 }
 
 pub fn sth(gc: &mut Gamecube, instr: &Instruction) {
@@ -23,7 +23,7 @@ pub fn stw(gc: &mut Gamecube, instr: &Instruction) {
 }
 
 pub fn stwu(gc: &mut Gamecube, instr: &Instruction) {
-    let b = ((gc.cpu.gprs[instr.a()] as i32) + instr.simm() as i32) as u32;
+    let b = ((gc.cpu.gprs[instr.a()] as i32).wrapping_add(instr.simm() as i32)) as u32;
     gc.write_u32(b, gc.cpu.gprs[instr.s()]);
     gc.cpu.gprs[instr.a()] = b;
 }
@@ -70,4 +70,10 @@ pub fn lfd(gc: &mut Gamecube, instr: &Instruction) {
     let b = b(gc, instr);
 
     *gc.cpu.fprs[instr.d()].as_u64_mut() = gc.read_u64(b);
+}
+
+pub fn stfd(gc: &mut Gamecube, instr: &Instruction) {
+    let b = b(gc, instr);
+
+    gc.write_u64(b, *gc.cpu.fprs[instr.s()].as_u64());
 }

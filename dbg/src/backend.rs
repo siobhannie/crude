@@ -23,7 +23,7 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
 			'shmeep: loop {
 			    for _ in 0..2000 {
 				crude::step(&mut gamecube);
-				if breakpoints.contains(&gamecube.cpu.nia) {
+				if breakpoints.contains(&gamecube.cpu.cia) {
 				    break 'shmeep;
 				}
 			    }
