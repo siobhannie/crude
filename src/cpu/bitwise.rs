@@ -1,3 +1,5 @@
+use std::ops::Shl;
+
 use crate::Gamecube;
 
 use super::{instr::Instruction, util::mask};
@@ -47,4 +49,13 @@ pub fn and(gc: &mut Gamecube, instr: &Instruction) {
 
 pub fn crxor(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.cr.set_reg(instr.d(), (gc.cpu.cr.get_reg(instr.a()) as u32) ^ (gc.cpu.cr.get_reg(instr.b()) as u32));
+}
+
+pub fn slw(gc: &mut Gamecube, instr: &Instruction) {
+    let n = gc.cpu.gprs[instr.b()] & 0x1F;
+    let r = gc.cpu.gprs[instr.s()].shl(n);
+    gc.cpu.gprs[instr.a()] = r;
+    if instr.rc() {
+	gc.cpu.do_cr0(r);
+    }
 }

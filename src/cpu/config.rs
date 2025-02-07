@@ -122,3 +122,13 @@ pub fn mtfsf(gc: &mut Gamecube, instr: &Instruction) {
 	unimplemented!("cr1");
     }
 }
+
+pub fn mtfsb1(gc: &mut Gamecube, instr: &Instruction) {
+    if instr.d() < 30 {
+	gc.cpu.fpscr.0 |= 1 << (31 - instr.d());
+    }
+    
+    if instr.rc() {
+	unimplemented!("cr1");
+    }
+}

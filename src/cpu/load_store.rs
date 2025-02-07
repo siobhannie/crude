@@ -77,3 +77,15 @@ pub fn stfd(gc: &mut Gamecube, instr: &Instruction) {
 
     gc.write_u64(b, *gc.cpu.fprs[instr.s()].as_u64());
 }
+
+pub fn stmd(gc: &mut Gamecube, instr: &Instruction) {
+    let mut b = b(gc, instr);
+
+    let mut r = instr.s();
+
+    while r <= 31 {
+	gc.write_u32(b, gc.cpu.gprs[r]);
+	r += 1;
+	b += 4;
+    }
+}

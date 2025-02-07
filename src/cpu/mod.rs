@@ -12,13 +12,13 @@ pub mod control_flow;
 use std::cmp::Ordering;
 
 use arithmetic::{add, addc, adde, addi, addic, addicr, addis, cmp, cmpi, cmpl, cmpli, subf};
-use bitwise::{and, crxor, nor, or, ori, oris, rlwinm};
+use bitwise::{and, crxor, nor, or, ori, oris, rlwinm, slw};
 use cache::isync;
-use config::{mffs, mfmsr, mfspr, mftb, mtfsf, mtmsr, mtspr, mtsr};
+use config::{mffs, mfmsr, mfspr, mftb, mtfsb1, mtfsf, mtmsr, mtspr, mtsr};
 use control_flow::{b, bc, bclr};
 use float::{ps_mr, fmr};
 use instr::Instruction;
-use load_store::{lfd, lwz, psq_l, stfd, sth, stw, stwu};
+use load_store::{lfd, lwz, psq_l, stfd, sth, stmd, stw, stwu};
 use log::{debug, info};
 use mmu::Mmu;
 
@@ -143,10 +143,12 @@ pub fn step(gc: &mut Gamecube) {
 	0b011111 => match instruction.sec_opcd() {
 	    0b0000000000 => cmp(gc, &instruction),
 	    0b0000001010 => addc(gc, &instruction),
+	    0b0000011000 => slw(gc, &instruction),
 	    0b0000011100 => and(gc, &instruction),
 	    0b0000100000 => cmpl(gc, &instruction),
 	    0b0000101000 => subf(gc, &instruction),
 	    0b0001010011 => mfmsr(gc, &instruction),
+	    0b0001010110 => info!("dcbf!"),
 	    0b0001111100 => nor(gc, &instruction),
 	    0b0010001010 => adde(gc, &instruction),
 	    0b0010010010 => mtmsr(gc, &instruction),
@@ -156,17 +158,20 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0101110011 => mftb(gc, &instruction),
 	    0b0110111100 => or(gc, &instruction),
 	    0b0111010011 => mtspr(gc, &instruction),
-	    0b1001010110 => {}, //sync
+	    0b1001010110 => info!("sync!"),
+	    0b1111010110 => info!("icbi!"),
 	    a => unimplemented!("secondary opcode: {a:#012b}, primary: 0b011111, instruction: {:#034b}", instruction.0),
 	},
 	0b100000 => lwz(gc, &instruction),
 	0b100100 => stw(gc, &instruction),
 	0b100101 => stwu(gc, &instruction),
 	0b101100 => sth(gc, &instruction),
+	0b101111 => stmd(gc, &instruction),
 	0b110010 => lfd(gc, &instruction),
 	0b110110 => stfd(gc, &instruction),
 	0b111000 => psq_l(gc, &instruction),
 	0b111111 => match instruction.sec_opcd() {
+	    0b0000100110 => mtfsb1(gc, &instruction),
 	    0b0001001000 => fmr(gc, &instruction),
 	    0b1001000111 => mffs(gc, &instruction),
 	    0b1011000111 => mtfsf(gc, &instruction),
