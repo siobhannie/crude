@@ -1,7 +1,7 @@
 #![feature(core_intrinsics)]
 #![feature(bigint_helper_methods)]
 
-use std::sync::Arc;
+use std::{fs::File, io::Write, sync::Arc};
 
 use audio_interface::ai_write_u16;
 use byteorder::{BigEndian, ByteOrder};
@@ -10,6 +10,7 @@ use external_interface::{exi_read_u32, exi_write_u32, ExternalInterface};
 use memory_interface::mi_write_u16;
 use processor_interface::{pi_read_u32, pi_write_u32};
 use serial_interface::{si_read_u32, si_write_u32, SerialInterface};
+use video_interface::vi_read_u16;
 
 pub mod cpu;
 pub mod audio_interface;
@@ -17,6 +18,7 @@ pub mod memory_interface;
 pub mod processor_interface;
 pub mod serial_interface;
 pub mod external_interface;
+pub mod video_interface;
 
 pub struct Gamecube {
     pub cpu: Cpu,
@@ -53,6 +55,7 @@ impl Gamecube {
 
 	match phys {
 	    0x0000_0000..=0x017F_FFFF => BigEndian::read_u16(&self.memory[(phys as usize)..]),
+	    0x0C00_2000..=0x0C00_2FFF => vi_read_u16(self, phys - 0x0C00_2000),
 	    _ => unimplemented!("addr {phys:#010X} for read_u16"),
 	}
     }

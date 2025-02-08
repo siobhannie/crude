@@ -37,7 +37,6 @@ impl EXIDevice for Bootrom {
 	    self.command_bytes_received += 1;
 	} else {
 	    let addr = self.get_address();
-
 	    if addr < 0x00200000 {
 		if !self.is_write() {
 		    *byte = self.rom[(addr + self.cursor) as usize];

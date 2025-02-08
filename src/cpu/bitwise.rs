@@ -59,3 +59,19 @@ pub fn slw(gc: &mut Gamecube, instr: &Instruction) {
 	gc.cpu.do_cr0(r);
     }
 }
+
+pub fn andc(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()] & !gc.cpu.gprs[instr.b()];
+
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
+    }
+}
+
+pub fn extsh(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = ((gc.cpu.gprs[instr.s()] as i16) as i32) as u32;
+
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
+    }
+}

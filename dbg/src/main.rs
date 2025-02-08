@@ -67,6 +67,8 @@ fn main() {
 	    .build(|| {
 		ui.text_wrapped(format!("cia: {:#010X}", processor_state.cia.load(Ordering::Relaxed)));
 		ui.text_wrapped(format!("nia: {:#010X}", processor_state.nia.load(Ordering::Relaxed)));
+		ui.text_wrapped(format!("lr: {:#010X}", processor_state.lr.load(Ordering::Relaxed)));
+		ui.text_wrapped(format!("ctr: {:#010X}", processor_state.ctr.load(Ordering::Relaxed)));
 		for (i, gpr) in processor_state.gprs.iter().enumerate() {
 		    ui.text_wrapped(format!("r{}: {:#010X}", i, gpr.load(Ordering::Relaxed)));
 		}

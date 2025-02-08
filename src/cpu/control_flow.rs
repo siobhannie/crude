@@ -64,3 +64,17 @@ pub fn b(gc: &mut Gamecube, instr: &Instruction) {
 	gc.cpu.lr = gc.cpu.cia.wrapping_add(4);
     }
 }
+
+pub fn bcctr(gc: &mut Gamecube, instr: &Instruction) {
+    let bo = instr.bo();
+    let bi = instr.bi();
+
+    let cond_ok =  ((bo & 0x10) != 0) | ((((gc.cpu.cr.0 >> (31 - bi)) & 1) != 0) & ((bo & 0x8) != 0));
+
+    if cond_ok {
+	gc.cpu.nia = gc.cpu.ctr & !3;
+	if instr.lk() {
+	    gc.cpu.lr = gc.cpu.cia.wrapping_add(4);
+	}
+    }
+}

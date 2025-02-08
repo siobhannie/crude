@@ -57,6 +57,8 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
 pub struct SharedProcessorState {
     pub cia: AtomicU32,
     pub nia: AtomicU32,
+    pub lr: AtomicU32,
+    pub ctr: AtomicU32,
     pub gprs: Vec<AtomicU32>
 }
 
@@ -67,6 +69,8 @@ impl SharedProcessorState {
 	Self {
 	    cia: AtomicU32::new(0),
 	    nia: AtomicU32::new(0),
+	    lr: AtomicU32::new(0),
+	    ctr: AtomicU32::new(0),
 	    gprs,
 	}
     }
@@ -74,6 +78,8 @@ impl SharedProcessorState {
     pub fn update(&self, gc: &mut Gamecube) {
 	self.cia.store(gc.cpu.cia, Ordering::Relaxed);
 	self.nia.store(gc.cpu.nia, Ordering::Relaxed);
+	self.lr.store(gc.cpu.lr, Ordering::Relaxed);
+	self.ctr.store(gc.cpu.ctr, Ordering::Relaxed);
 	for (i, n) in gc.cpu.gprs.iter().enumerate() {
 	    self.gprs[i].store(*n, Ordering::Relaxed);
 	}
@@ -85,7 +91,7 @@ fn update_instruction_buffer(gc: &mut Gamecube, buffer: &SharedInstructionBuffer
 
     for (addr, instr) in buffer.iter() {
 	addr.store(start, Ordering::Relaxed);
-	let instruction = gc.read_u32(start, true);
+	let instruction = catch_unwind(AssertUnwindSafe(|| gc.read_u32(start, true))).unwrap_or(0);
 	instr.store(instruction, Ordering::Relaxed);
 	start = start.wrapping_add(4);
     }
