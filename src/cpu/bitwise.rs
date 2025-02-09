@@ -60,6 +60,28 @@ pub fn slw(gc: &mut Gamecube, instr: &Instruction) {
     }
 }
 
+pub fn sraw(gc: &mut Gamecube, instr: &Instruction) {
+    let b = gc.cpu.gprs[instr.b()];
+
+    if (b & 0x20) != 0 {
+	if (gc.cpu.gprs[instr.s()] & 0x80000000) != 0 {
+	    gc.cpu.gprs[instr.a()] = 0xFFFFFFFF;
+	    gc.cpu.xer.set_ca(true);
+	} else {
+	    gc.cpu.gprs[instr.a()] = 0x00000000;
+	    gc.cpu.xer.set_ca(false);
+	}
+    } else {
+	let n = b & 0x1f;
+	let s = gc.cpu.gprs[instr.s()] as i32;
+	gc.cpu.gprs[instr.a()] = (s >> n) as u32;
+
+	gc.cpu.xer.set_ca(s < 0 && n > 0  && ((s as u32) << (32 - n)) != 0);
+    }
+
+    gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
+}
+
 pub fn andc(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()] & !gc.cpu.gprs[instr.b()];
 
@@ -74,4 +96,8 @@ pub fn extsh(gc: &mut Gamecube, instr: &Instruction) {
     if instr.rc() {
 	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
     }
+}
+
+pub fn xoris(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()] ^ ((instr.uimm() as u32) << 16)
 }

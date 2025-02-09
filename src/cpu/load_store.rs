@@ -2,7 +2,7 @@ use log::debug;
 
 use crate::Gamecube;
 
-use super::{instr::Instruction, util::{dequantized, sext_12}};
+use super::{instr::Instruction, util::{dequantized, sext_12}, PROGRAM_EXCEPTION};
 
 fn b(gc: &mut Gamecube, instr: &Instruction) -> u32 {
     ((if instr.a() == 0 {
@@ -41,6 +41,15 @@ pub fn lhz(gc: &mut Gamecube, instr: &Instruction) {
 pub fn lwz(gc: &mut Gamecube, instr: &Instruction) {
     let b = b(gc, instr);
     gc.cpu.gprs[instr.d()] = gc.read_u32(b, false);
+}
+
+pub fn lwzu(gc: &mut Gamecube, instr: &Instruction) {
+    if instr.a() == 0 || instr.a() == instr.d() {
+	gc.cpu.exceptions |= PROGRAM_EXCEPTION;
+    }
+    let b = (gc.cpu.gprs[instr.a()] as i32).wrapping_add(instr.simm() as i32) as u32;
+    gc.cpu.gprs[instr.d()] = gc.read_u32(b, false);
+    gc.cpu.gprs[instr.a()] = b;
 }
 
 pub fn psq_l(gc: &mut Gamecube, instr: &Instruction) {

@@ -11,14 +11,14 @@ pub mod control_flow;
 
 use std::cmp::Ordering;
 
-use arithmetic::{add, addc, adde, addi, addic, addicr, addis, cmp, cmpi, cmpl, cmpli, subf};
-use bitwise::{and, andc, crxor, extsh, nor, or, ori, oris, rlwinm, slw};
+use arithmetic::{add, addc, adde, addi, addic, addicr, addis, cmp, cmpi, cmpl, cmpli, mulhwu, mulli, mullw, subf, subfc, subfe};
+use bitwise::{and, andc, crxor, extsh, nor, or, ori, oris, rlwinm, slw, sraw, xoris};
 use cache::isync;
 use config::{mffs, mfmsr, mfspr, mftb, mtfsb1, mtfsf, mtmsr, mtspr, mtsr};
 use control_flow::{b, bc, bcctr, bclr};
 use float::{ps_mr, fmr};
 use instr::Instruction;
-use load_store::{lbz, lfd, lhz, lhzx, lmw, lwz, lwzx, psq_l, stfd, sth, stmw, stw, stwu};
+use load_store::{lbz, lfd, lhz, lhzx, lmw, lwz, lwzu, lwzx, psq_l, stfd, sth, stmw, stw, stwu};
 use log::{debug, info};
 use mmu::Mmu;
 
@@ -123,6 +123,7 @@ pub fn step(gc: &mut Gamecube) {
     
     match instruction.opcd() {
 	0b000100 => ps_mr(gc, &instruction),
+	0b000111 => mulli(gc, &instruction),
 	0b001010 => cmpli(gc, &instruction),
 	0b001011 => cmpi(gc, &instruction),
 	0b001100 => addic(gc, &instruction),
@@ -134,6 +135,7 @@ pub fn step(gc: &mut Gamecube) {
 	0b010101 => rlwinm(gc, &instruction),
 	0b011000 => ori(gc, &instruction),
 	0b011001 => oris(gc, &instruction),
+	0b011011 => xoris(gc, &instruction),
 	0b010011 => match instruction.sec_opcd() {
 	    0b0000010000 => bclr(gc, &instruction),
 	    0b0010010110 => isync(gc, &instruction),
@@ -143,7 +145,9 @@ pub fn step(gc: &mut Gamecube) {
 	},
 	0b011111 => match instruction.sec_opcd() {
 	    0b0000000000 => cmp(gc, &instruction),
+	    0b0000001000 => subfc(gc, &instruction),
 	    0b0000001010 => addc(gc, &instruction),
+	    0b0000001011 => mulhwu(gc, &instruction),
 	    0b0000010111 => lwzx(gc, &instruction),
 	    0b0000011000 => slw(gc, &instruction),
 	    0b0000011100 => and(gc, &instruction),
@@ -153,9 +157,11 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0001010011 => mfmsr(gc, &instruction),
 	    0b0001010110 => info!("dcbf!"),
 	    0b0001111100 => nor(gc, &instruction),
+	    0b0010001000 => subfe(gc, &instruction),
 	    0b0010001010 => adde(gc, &instruction),
 	    0b0010010010 => mtmsr(gc, &instruction),
 	    0b0011010010 => mtsr(gc, &instruction),
+	    0b0011101011 => mullw(gc, &instruction),
 	    0b0100001010 => add(gc, &instruction),
 	    0b0100010111 => lhzx(gc, &instruction),
 	    0b0101010011 => mfspr(gc, &instruction),
@@ -163,11 +169,13 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0110111100 => or(gc, &instruction),
 	    0b0111010011 => mtspr(gc, &instruction),
 	    0b1001010110 => info!("sync!"),
+	    0b1100011000 => sraw(gc, &instruction),
 	    0b1110011010 => extsh(gc, &instruction),
 	    0b1111010110 => info!("icbi!"),
 	    a => unimplemented!("secondary opcode: {a:#012b}, primary: 0b011111, instruction: {:#034b}", instruction.0),
 	},
 	0b100000 => lwz(gc, &instruction),
+	0b100001 => lwzu(gc, &instruction),
 	0b100010 => lbz(gc, &instruction),
 	0b100100 => stw(gc, &instruction),
 	0b101000 => lhz(gc, &instruction),
@@ -543,6 +551,10 @@ impl XER {
 
     pub fn ov(&self) -> bool {
 	((self.0 >> 30) & 1) != 0
+    }
+
+    pub fn set_ov(&mut self, val: bool) {
+	self.0 = (self.0 & !(1 << 30)) | ((val as u32) << 30);
     }
 
     pub fn so(&self) -> bool {
