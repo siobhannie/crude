@@ -1,6 +1,8 @@
+use std::io::stdin;
+
 use crate::Gamecube;
 
-use super::{instr::Instruction, write_hid0, write_msr};
+use super::{instr::Instruction, write_hid0, SYSTEMCALL_EXCEPTION};
 
 pub fn mtspr(gc: &mut Gamecube, instr: &Instruction) {
     let val = gc.cpu.gprs[instr.s()];
@@ -93,9 +95,7 @@ pub fn mfmsr(gc: &mut Gamecube, instr: &Instruction) {
 }
 
 pub fn mtmsr(gc: &mut Gamecube, instr: &Instruction) {
-    let val = gc.cpu.gprs[instr.s()];
-
-    write_msr(gc, val);
+    gc.cpu.msr.0 = gc.cpu.gprs[instr.s()];
 }
 
 pub fn mffs(gc: &mut Gamecube, instr: &Instruction) {
@@ -131,4 +131,9 @@ pub fn mtfsb1(gc: &mut Gamecube, instr: &Instruction) {
     if instr.rc() {
 	unimplemented!("cr1");
     }
+}
+
+pub fn sc(gc: &mut Gamecube, instr: &Instruction) {
+    println!("msr: {:#034b}", gc.cpu.msr.0);
+    gc.cpu.exceptions |= SYSTEMCALL_EXCEPTION;
 }

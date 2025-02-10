@@ -52,6 +52,10 @@ pub fn lwzu(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.gprs[instr.a()] = b;
 }
 
+pub fn lfs(gc: &mut Gamecube, instr: &Instruction) {
+    let b = b(gc, instr);
+}
+
 pub fn psq_l(gc: &mut Gamecube, instr: &Instruction) {
     if !(gc.cpu.hid2.pse() | gc.cpu.hid2.lsqe()) {
 	unimplemented!("exception");

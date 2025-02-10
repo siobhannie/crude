@@ -216,3 +216,17 @@ pub fn cmpi(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.cr.set_reg(instr.crd(), c);
     
 }
+
+pub fn neg(gc: &mut Gamecube, instr: &Instruction) {
+    let r = (!gc.cpu.gprs[instr.a()]).wrapping_add(1);
+
+    gc.cpu.gprs[instr.d()] = r;
+
+    if instr.oe() {
+	gc.cpu.xer.set_so(r == 0x8000_0000);
+    }
+
+    if instr.rc() {
+	gc.cpu.do_cr0(r);
+    }
+}

@@ -12,8 +12,8 @@ pub fn bc(gc: &mut Gamecube, instr: &Instruction) {
 	gc.cpu.ctr -= 1;
     }
 
-    let ctr_ok = ((bo & 0x4) != 0) | ((gc.cpu.ctr != 0) ^ ((bo & 0x2) != 0));
-    let cond_ok =  ((bo & 0x10) != 0) | ((((gc.cpu.cr.0 >> (31 - bi)) & 1) != 0) & ((bo & 0x8) != 0));
+    let ctr_ok = ((bo >> 2) & 1) != 0 || (((gc.cpu.ctr != 0) as u8 ^ (bo as u8 >> 1)) & 1) != 0;
+    let cond_ok = ((bo >> 4) & 1) != 0 || (((gc.cpu.cr.0 >> (31 - bi)) & 1) as usize == (bo >> 3) & 1);
 
     if ctr_ok && cond_ok {
 	let addr = i32::from((instr.bd() << 2) as i16) as u32;
@@ -38,8 +38,8 @@ pub fn bclr(gc: &mut Gamecube, instr: &Instruction) {
 	gc.cpu.ctr -= 1;
     }
 
-    let ctr_ok = ((bo & 0x4) != 0) | ((gc.cpu.ctr != 0) ^ ((bo & 0x2) != 0));
-    let cond_ok =  ((bo & 0x10) != 0) | ((((gc.cpu.cr.0 >> (31 - bi)) & 1) != 0) & ((bo & 0x8) != 0));
+    let ctr_ok = ((bo >> 2) & 1) != 0 || (((gc.cpu.ctr != 0) as u8 ^ (bo as u8 >> 1)) & 1) != 0;
+    let cond_ok = ((bo >> 4) & 1) != 0 || (((gc.cpu.cr.0 >> (31 - bi)) & 1) as usize == (bo >> 3) & 1);
 
 
     if ctr_ok && cond_ok {
@@ -69,7 +69,7 @@ pub fn bcctr(gc: &mut Gamecube, instr: &Instruction) {
     let bo = instr.bo();
     let bi = instr.bi();
 
-    let cond_ok =  ((bo & 0x10) != 0) | ((((gc.cpu.cr.0 >> (31 - bi)) & 1) != 0) & ((bo & 0x8) != 0));
+    let cond_ok = ((bo >> 4) & 1) != 0 || (((gc.cpu.cr.0 >> (31 - bi)) & 1) as usize == (bo >> 3) & 1);
 
     if cond_ok {
 	gc.cpu.nia = gc.cpu.ctr & !3;

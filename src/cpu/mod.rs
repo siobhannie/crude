@@ -11,10 +11,10 @@ pub mod control_flow;
 
 use std::cmp::Ordering;
 
-use arithmetic::{add, addc, adde, addi, addic, addicr, addis, cmp, cmpi, cmpl, cmpli, mulhwu, mulli, mullw, subf, subfc, subfe};
-use bitwise::{and, andc, crxor, extsh, nor, or, ori, oris, rlwinm, slw, sraw, xoris};
+use arithmetic::{add, addc, adde, addi, addic, addicr, addis, cmp, cmpi, cmpl, cmpli, mulhwu, mulli, mullw, neg, subf, subfc, subfe};
+use bitwise::{and, andc, andi, crxor, extsh, nor, or, ori, oris, rlwimi, rlwinm, slw, sraw, xoris};
 use cache::isync;
-use config::{mffs, mfmsr, mfspr, mftb, mtfsb1, mtfsf, mtmsr, mtspr, mtsr};
+use config::{mffs, mfmsr, mfspr, mftb, mtfsb1, mtfsf, mtmsr, mtspr, mtsr, sc};
 use control_flow::{b, bc, bcctr, bclr};
 use float::{ps_mr, fmr};
 use instr::Instruction;
@@ -24,6 +24,7 @@ use mmu::Mmu;
 
 pub const RESET_EXCEPTION: u32   = 0x1;
 pub const PROGRAM_EXCEPTION: u32 = 0x2;
+pub const SYSTEMCALL_EXCEPTION: u32 = 0x4;
 
 use crate::Gamecube;
 
@@ -65,7 +66,7 @@ impl Cpu {
 	    wpar: 0,
 	    gqrs: [GraphicsQuantizationRegister(0); 8],
 	    fprs: [FloatingPointRegister::from_u64(0); 32],
-	    msr: MachineStateRegister(0),
+	    msr: MachineStateRegister(0x40),
 	    tb: 0,
 	    cr: ConditionRegister(0),
 	    ctr: 0,
@@ -110,8 +111,29 @@ impl Cpu {
 	    self.srr1 = self.msr.0 & 0x87C0_FFFF;
 	    self.msr.set_le(self.msr.ile());
 	    self.msr.0 &= !0x04EF36;
+	    if self.msr.ip() {
+		self.cia = 0xFFF0_0700;
+	    } else {
+		self.cia = 0x700;
+	    }
+
+	    self.nia = self.cia;
 
 	    self.exceptions &= !PROGRAM_EXCEPTION;
+	} else if self.exceptions & SYSTEMCALL_EXCEPTION != 0 {
+	    self.srr0 = self.nia;
+	    self.srr1 = self.msr.0 & 0x87C0_FFFF;
+	    self.msr.set_le(self.msr.ile());
+	    self.msr.0 &= !0x04EF36;
+	    if self.msr.ip() {
+		self.cia = 0xFFF0_0C00;
+	    } else {
+		self.cia = 0xC00;
+	    }
+
+	    self.nia = self.cia;
+
+	    self.exceptions &= !SYSTEMCALL_EXCEPTION;
 	}
     }
 }
@@ -131,7 +153,9 @@ pub fn step(gc: &mut Gamecube) {
 	0b001110 => addi(gc, &instruction),
 	0b001111 => addis(gc, &instruction),
 	0b010000 => bc(gc, &instruction),
+	0b010001 => sc(gc, &instruction),
 	0b010010 => b(gc, &instruction),
+	0b010100 => rlwimi(gc, &instruction),
 	0b010101 => rlwinm(gc, &instruction),
 	0b011000 => ori(gc, &instruction),
 	0b011001 => oris(gc, &instruction),
@@ -143,6 +167,7 @@ pub fn step(gc: &mut Gamecube) {
 	    0b1000010000 => bcctr(gc, &instruction),
 	    a => unimplemented!("secondary opcode: {a:#012b}, primary: 0b010011, instruction: {:#034b}", instruction.0),
 	},
+	0b011100 => andi(gc, &instruction),
 	0b011111 => match instruction.sec_opcd() {
 	    0b0000000000 => cmp(gc, &instruction),
 	    0b0000001000 => subfc(gc, &instruction),
@@ -156,6 +181,7 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0000111100 => andc(gc, &instruction),
 	    0b0001010011 => mfmsr(gc, &instruction),
 	    0b0001010110 => info!("dcbf!"),
+	    0b0001101000 => neg(gc, &instruction),
 	    0b0001111100 => nor(gc, &instruction),
 	    0b0010001000 => subfe(gc, &instruction),
 	    0b0010001010 => adde(gc, &instruction),
@@ -168,6 +194,7 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0101110011 => mftb(gc, &instruction),
 	    0b0110111100 => or(gc, &instruction),
 	    0b0111010011 => mtspr(gc, &instruction),
+	    0b0111010110 => info!("dcbi"),
 	    0b1001010110 => info!("sync!"),
 	    0b1100011000 => sraw(gc, &instruction),
 	    0b1110011010 => extsh(gc, &instruction),
@@ -198,6 +225,8 @@ pub fn step(gc: &mut Gamecube) {
     
     gc.cpu.cia = gc.cpu.nia;
 
+    gc.cpu.exception();
+
     gc.cpu.tb += 1;
 
     gc.cpu.nia = gc.cpu.cia.wrapping_add(4);
@@ -206,11 +235,6 @@ pub fn step(gc: &mut Gamecube) {
 pub fn write_hid0(gc: &mut Gamecube, val: u32) {
     debug!("STUB: hid0 write with val {val:#034b}");
     gc.cpu.hid0 = val;
-}
-
-pub fn write_msr(gc: &mut Gamecube, val: u32) {
-    debug!("STUB: msr write with val {val:#034b}");
-    gc.cpu.msr = MachineStateRegister(val);
 }
 
 pub struct MachineStateRegister(pub u32);
@@ -559,5 +583,9 @@ impl XER {
 
     pub fn so(&self) -> bool {
 	((self.0 >> 31) & 1) != 0
+    }
+
+    pub fn set_so(&mut self, val: bool) {
+	self.0 = (self.0 & !(1 << 31)) | ((val as u32) << 31);
     }
 }

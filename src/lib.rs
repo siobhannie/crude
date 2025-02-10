@@ -86,6 +86,7 @@ impl Gamecube {
 	let phys = self.cpu.mmu.translate_addr(false, addr, &self.cpu.msr);
 	
 	match phys {
+	    0x0000_0000..=0x017F_FFFF => BigEndian::write_u16(&mut self.memory[(phys as usize)..], val),
 	    0x0C00_4000..=0x0C00_4FFF => mi_write_u16(self, phys - 0x0C00_4000, val),
 	    0x0C00_5000..=0x0C00_5FFF => ai_write_u16(self, phys - 0x0C00_5000, val),
 	    _ => unimplemented!("addr {phys:#010X} for write_u16"),

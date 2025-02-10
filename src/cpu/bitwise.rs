@@ -23,6 +23,15 @@ pub fn rlwinm(gc: &mut Gamecube, instr: &Instruction) {
     }
 }
 
+pub fn rlwimi(gc: &mut Gamecube, instr: &Instruction) {
+    let r = gc.cpu.gprs[instr.s()].rotate_left(instr.sh() as u32);
+    let m = mask(instr.mb(), instr.me());
+    gc.cpu.gprs[instr.a()] = (r & m) | (gc.cpu.gprs[instr.a()] & !m);
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
+    }
+}
+
 pub fn or(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()] | gc.cpu.gprs[instr.b()];
 
@@ -45,6 +54,12 @@ pub fn and(gc: &mut Gamecube, instr: &Instruction) {
     if instr.rc() {
 	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
     }
+}
+
+pub fn andi(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()] & (instr.uimm() as u32);
+
+    gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
 }
 
 pub fn crxor(gc: &mut Gamecube, instr: &Instruction) {
