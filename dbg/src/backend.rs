@@ -59,6 +59,8 @@ pub struct SharedProcessorState {
     pub nia: AtomicU32,
     pub lr: AtomicU32,
     pub ctr: AtomicU32,
+    pub srr0: AtomicU32,
+    pub srr1: AtomicU32,
     pub gprs: Vec<AtomicU32>
 }
 
@@ -71,6 +73,8 @@ impl SharedProcessorState {
 	    nia: AtomicU32::new(0),
 	    lr: AtomicU32::new(0),
 	    ctr: AtomicU32::new(0),
+	    srr0: AtomicU32::new(0),
+	    srr1: AtomicU32::new(0),
 	    gprs,
 	}
     }
@@ -80,6 +84,8 @@ impl SharedProcessorState {
 	self.nia.store(gc.cpu.nia, Ordering::Relaxed);
 	self.lr.store(gc.cpu.lr, Ordering::Relaxed);
 	self.ctr.store(gc.cpu.ctr, Ordering::Relaxed);
+	self.srr0.store(gc.cpu.srr0, Ordering::Relaxed);
+	self.srr1.store(gc.cpu.srr1, Ordering::Relaxed);
 	for (i, n) in gc.cpu.gprs.iter().enumerate() {
 	    self.gprs[i].store(*n, Ordering::Relaxed);
 	}

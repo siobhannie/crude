@@ -103,6 +103,24 @@ pub fn subfc(gc: &mut Gamecube, instr: &Instruction) {
     }
 }
 
+pub fn subfic(gc: &mut Gamecube, instr: &Instruction) {
+    let simm = ((instr.simm() as i32) as u32);
+    let (r1, c1) = (!gc.cpu.gprs[instr.a()]).overflowing_add(simm);
+    let (r, c2) = r1.overflowing_add(1);
+
+    gc.cpu.gprs[instr.d()] = r;
+
+    gc.cpu.xer.set_ca(c1 | c2);
+
+    if instr.rc() {
+	gc.cpu.do_cr0(r);
+    }
+
+    if instr.oe() {
+	unimplemented!("xer");
+    }
+}
+
 pub fn subfe(gc: &mut Gamecube, instr: &Instruction) {
     let (r1, c1) = (!gc.cpu.gprs[instr.a()]).overflowing_add(gc.cpu.gprs[instr.b()]);
     let (r, c2) = r1.overflowing_add(gc.cpu.xer.ca() as u32);
@@ -228,5 +246,13 @@ pub fn neg(gc: &mut Gamecube, instr: &Instruction) {
 
     if instr.rc() {
 	gc.cpu.do_cr0(r);
+    }
+}
+
+pub fn cntlzw(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()].leading_zeros();
+
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
     }
 }

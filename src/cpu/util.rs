@@ -64,3 +64,41 @@ pub fn mask(mb: usize, me: usize) -> u32 {
     }
     mask
 }
+
+pub fn convert_to_single(val: u64) -> u32 {
+    let exp = ((val >> 52) & 0x7FF) as u32;
+
+    if exp > 896 || (val & !0x8000_0000_0000_0000) == 0 {
+	return (((val >> 32) & 0xC000_0000) | ((val >> 29) & 0x3FFF_FFFF)) as u32;
+    } else if (exp >= 874) {
+	let mut t = (0x8000_0000 | ((val & 0x000F_FFFF_FFFF_FFFF) >> 21)) as u32;
+	t = t >> (905 - exp);
+	t |= ((val >> 32) & 0x8000_0000) as u32;
+	return t;
+    } else {
+	return (((val >> 32) & 0xC000_0000) | ((val >> 29) & 0x3FFF_FFFF)) as u32;
+    }
+}
+
+pub fn convert_to_double(val: u32) -> u64 {
+    let x = val as u64;
+    let mut exp = (x >> 23) & 0xff;
+    let mut frac = x & 0x007F_FFFF;
+
+    if (exp > 0) && (exp < 255) {
+	let y = !(exp >> 7);
+	let z = y << 61 | y << 60 | y << 59;
+	return ((x & 0xC000_0000) << 32) | z | ((x & 0x3FFF_FFFF) << 29);
+    } else if (exp == 0) && (frac != 0) {
+	exp = 1023 - 126;
+	while (frac & 0x0800_0000) == 0 {
+	    frac <<= 1;
+	    exp -= 1;
+	}
+	return ((x & 0x8000_0000) << 32) | (exp << 52) | ((frac & 0x007F_FFFF) << 29);
+    } else {
+	let y = exp >> 7;
+	let z = y << 61 | y << 60 | y << 59;
+	return ((x & 0xC000_0000) << 32) | z | ((x & 0x3FFF_FFFF) << 29);
+    }
+}

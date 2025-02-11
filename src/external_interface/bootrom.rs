@@ -1,18 +1,22 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, RwLock};
+
+use crate::sram::Sram;
 
 use super::EXIDevice;
 
 pub struct Bootrom {
     rom: Vec<u8>,
+    sram: Arc<RwLock<Sram>>,
     command_bytes_received: u32,
     command: u32,
     cursor: u32,
 }
 
 impl Bootrom {
-    pub fn new(rom: Vec<u8>) -> Self {
+    pub fn new(rom: Vec<u8>, sram: Arc<RwLock<Sram>>) -> Self {
 	Self {
 	    rom,
+	    sram,
 	    command_bytes_received: 0,
 	    command: 0,
 	    cursor: 0,
@@ -37,10 +41,17 @@ impl EXIDevice for Bootrom {
 	    self.command_bytes_received += 1;
 	} else {
 	    let addr = self.get_address();
-	    if addr < 0x00200000 {
+	    if addr < 0x0020_0000 {
 		if !self.is_write() {
 		    *byte = self.rom[(addr + self.cursor) as usize];
 		    self.cursor += 1;
+		}
+	    } else if addr >= 0x0080_0000 && addr < 0x0080_0044 {
+		let dev_addr = addr - 0x0080_0000 + self.cursor;
+		if self.is_write() {
+		    self.sram.write().unwrap().as_byte_array_mut()[dev_addr as usize] = *byte;
+		} else {
+		    *byte = self.sram.read().unwrap().as_byte_array()[dev_addr as usize];
 		}
 	    } else {
 		unimplemented!("{addr:#010X}");

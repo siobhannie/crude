@@ -11,14 +11,14 @@ pub mod control_flow;
 
 use std::cmp::Ordering;
 
-use arithmetic::{add, addc, adde, addi, addic, addicr, addis, cmp, cmpi, cmpl, cmpli, mulhwu, mulli, mullw, neg, subf, subfc, subfe};
-use bitwise::{and, andc, andi, crxor, extsh, nor, or, ori, oris, rlwimi, rlwinm, slw, sraw, xoris};
+use arithmetic::{add, addc, adde, addi, addic, addicr, addis, cmp, cmpi, cmpl, cmpli, cntlzw, mulhwu, mulli, mullw, neg, subf, subfc, subfe, subfic};
+use bitwise::{and, andc, andi, crxor, extsh, nor, or, ori, oris, rlwimi, rlwinm, slw, sraw, srw, xor, xoris};
 use cache::isync;
 use config::{mffs, mfmsr, mfspr, mftb, mtfsb1, mtfsf, mtmsr, mtspr, mtsr, sc};
-use control_flow::{b, bc, bcctr, bclr};
+use control_flow::{b, bc, bcctr, bclr, rfi};
 use float::{ps_mr, fmr};
 use instr::Instruction;
-use load_store::{lbz, lfd, lhz, lhzx, lmw, lwz, lwzu, lwzx, psq_l, stfd, sth, stmw, stw, stwu};
+use load_store::{lbz, lbzu, lfd, lfs, lhz, lhzu, lhzx, lmw, lwz, lwzu, lwzx, psq_l, stb, stbu, stfd, stfs, stfsu, sth, stmw, stw, stwu, stwx};
 use log::{debug, info};
 use mmu::Mmu;
 
@@ -146,6 +146,7 @@ pub fn step(gc: &mut Gamecube) {
     match instruction.opcd() {
 	0b000100 => ps_mr(gc, &instruction),
 	0b000111 => mulli(gc, &instruction),
+	0b001000 => subfic(gc, &instruction),
 	0b001010 => cmpli(gc, &instruction),
 	0b001011 => cmpi(gc, &instruction),
 	0b001100 => addic(gc, &instruction),
@@ -162,6 +163,7 @@ pub fn step(gc: &mut Gamecube) {
 	0b011011 => xoris(gc, &instruction),
 	0b010011 => match instruction.sec_opcd() {
 	    0b0000010000 => bclr(gc, &instruction),
+	    0b0000110010 => rfi(gc, &instruction),
 	    0b0010010110 => isync(gc, &instruction),
 	    0b0011000001 => crxor(gc, &instruction),
 	    0b1000010000 => bcctr(gc, &instruction),
@@ -175,6 +177,7 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0000001011 => mulhwu(gc, &instruction),
 	    0b0000010111 => lwzx(gc, &instruction),
 	    0b0000011000 => slw(gc, &instruction),
+	    0b0000011010 => cntlzw(gc, &instruction),
 	    0b0000011100 => and(gc, &instruction),
 	    0b0000100000 => cmpl(gc, &instruction),
 	    0b0000101000 => subf(gc, &instruction),
@@ -186,15 +189,18 @@ pub fn step(gc: &mut Gamecube) {
 	    0b0010001000 => subfe(gc, &instruction),
 	    0b0010001010 => adde(gc, &instruction),
 	    0b0010010010 => mtmsr(gc, &instruction),
+	    0b0010010111 => stwx(gc, &instruction),
 	    0b0011010010 => mtsr(gc, &instruction),
 	    0b0011101011 => mullw(gc, &instruction),
 	    0b0100001010 => add(gc, &instruction),
 	    0b0100010111 => lhzx(gc, &instruction),
+	    0b0100111100 => xor(gc, &instruction),
 	    0b0101010011 => mfspr(gc, &instruction),
 	    0b0101110011 => mftb(gc, &instruction),
 	    0b0110111100 => or(gc, &instruction),
 	    0b0111010011 => mtspr(gc, &instruction),
 	    0b0111010110 => info!("dcbi"),
+	    0b1000011000 => srw(gc, &instruction),
 	    0b1001010110 => info!("sync!"),
 	    0b1100011000 => sraw(gc, &instruction),
 	    0b1110011010 => extsh(gc, &instruction),
@@ -204,13 +210,20 @@ pub fn step(gc: &mut Gamecube) {
 	0b100000 => lwz(gc, &instruction),
 	0b100001 => lwzu(gc, &instruction),
 	0b100010 => lbz(gc, &instruction),
+	0b100011 => lbzu(gc, &instruction),
+	0b100110 => stb(gc, &instruction),
+	0b100111 => stbu(gc, &instruction),
 	0b100100 => stw(gc, &instruction),
 	0b101000 => lhz(gc, &instruction),
+	0b101001 => lhzu(gc, &instruction),
 	0b100101 => stwu(gc, &instruction),
 	0b101100 => sth(gc, &instruction),
 	0b101110 => lmw(gc, &instruction),
 	0b101111 => stmw(gc, &instruction),
+	0b110000 => lfs(gc, &instruction),
 	0b110010 => lfd(gc, &instruction),
+	0b110100 => stfs(gc, &instruction),
+	0b110101 => stfsu(gc, &instruction),
 	0b110110 => stfd(gc, &instruction),
 	0b111000 => psq_l(gc, &instruction),
 	0b111111 => match instruction.sec_opcd() {

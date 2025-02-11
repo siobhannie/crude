@@ -1,15 +1,17 @@
 pub mod ad16;
 pub mod null;
 pub mod bootrom;
+pub mod no_device;
 
-use std::{intrinsics::unreachable, sync::Arc};
+use std::{intrinsics::unreachable, sync::{Arc, Mutex, RwLock}};
 
 use ad16::AD16;
 use bootrom::Bootrom;
 use log::debug;
+use no_device::NoDevice;
 use null::NullDevice;
 
-use crate::Gamecube;
+use crate::{sram::Sram, Gamecube};
 
 pub struct ExternalInterface {
     channel0: EXIChannel,
@@ -18,9 +20,9 @@ pub struct ExternalInterface {
 }
 
 impl ExternalInterface {
-    pub fn new(bootrom: Vec<u8>) -> Self {
+    pub fn new(bootrom: Vec<u8>, sram: Arc<RwLock<Sram>>) -> Self {
         Self {
-	    channel0: EXIChannel::new([Box::new(NullDevice), Box::new(Bootrom::new(bootrom)), Box::new(NullDevice)]),
+	    channel0: EXIChannel::new([Box::new(NullDevice), Box::new(Bootrom::new(bootrom, sram)), Box::new(NoDevice)]),
 	    channel1: EXIChannel::new([Box::new(NullDevice), Box::new(NullDevice), Box::new(NullDevice)]),
 	    channel2: EXIChannel::new([Box::new(AD16::new()), Box::new(NullDevice), Box::new(NullDevice)]),
 	}

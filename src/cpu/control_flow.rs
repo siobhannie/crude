@@ -78,3 +78,13 @@ pub fn bcctr(gc: &mut Gamecube, instr: &Instruction) {
 	}
     }
 }
+
+pub fn rfi(gc: &mut Gamecube, instr: &Instruction) {
+    let mask = 0x87C0_FF73;
+
+    gc.cpu.msr.0 = (gc.cpu.msr.0 & !mask) | (gc.cpu.srr1 & mask);
+
+    gc.cpu.msr.0 &= 0xFFFB_FFFF;
+
+    gc.cpu.nia = gc.cpu.srr0 & 0xFFFF_FFFC;
+}

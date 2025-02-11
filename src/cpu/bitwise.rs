@@ -1,4 +1,4 @@
-use std::ops::Shl;
+use std::ops::{Shl, Shr};
 
 use crate::Gamecube;
 
@@ -62,6 +62,14 @@ pub fn andi(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
 }
 
+pub fn xor(gc: &mut Gamecube, instr: &Instruction) {
+    gc.cpu.gprs[instr.a()] = gc.cpu.gprs[instr.s()] ^ gc.cpu.gprs[instr.b()];
+
+    if instr.rc() {
+	gc.cpu.do_cr0(gc.cpu.gprs[instr.a()]);
+    }
+}
+
 pub fn crxor(gc: &mut Gamecube, instr: &Instruction) {
     gc.cpu.cr.set_reg(instr.d(), (gc.cpu.cr.get_reg(instr.a()) as u32) ^ (gc.cpu.cr.get_reg(instr.b()) as u32));
 }
@@ -69,6 +77,15 @@ pub fn crxor(gc: &mut Gamecube, instr: &Instruction) {
 pub fn slw(gc: &mut Gamecube, instr: &Instruction) {
     let n = gc.cpu.gprs[instr.b()] & 0x1F;
     let r = gc.cpu.gprs[instr.s()].shl(n);
+    gc.cpu.gprs[instr.a()] = r;
+    if instr.rc() {
+	gc.cpu.do_cr0(r);
+    }
+}
+
+pub fn srw(gc: &mut Gamecube, instr: &Instruction) {
+    let n = gc.cpu.gprs[instr.b()] & 0x1f;
+    let r = gc.cpu.gprs[instr.s()].shr(n);
     gc.cpu.gprs[instr.a()] = r;
     if instr.rc() {
 	gc.cpu.do_cr0(r);
