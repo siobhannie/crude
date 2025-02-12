@@ -6,7 +6,7 @@ use std::{fs::File, io::Write, sync::{Arc, RwLock}};
 use audio_interface::{ai_read_u32, ai_write_u16, ai_write_u32, AudioInterface};
 use byteorder::{BigEndian, ByteOrder};
 use cpu::Cpu;
-use dsp_interface::{dsp_read_u16, DSPInterface};
+use dsp_interface::{dsp_read_u16, dsp_write_u32, DSPInterface};
 use dvd_interface::di_read_u32;
 use external_interface::{exi_read_u32, exi_write_u32, ExternalInterface};
 use memory_interface::{mi_write_u16, MemoryInterface};
@@ -126,6 +126,7 @@ impl Gamecube {
 	match phys {
 	    0x0000_0000..=0x017F_FFFF => BigEndian::write_u32(&mut self.memory[(phys as usize)..], val),
 	    0x0C00_3000..=0x0C00_3FFF => pi_write_u32(self, phys - 0x0C00_3000, val),
+	    0x0C00_5000..=0x0C00_5FFF => dsp_write_u32(self, phys - 0x0C00_5000, val),
 	    0x0C00_6400..=0x0C00_67FF => si_write_u32(self, phys - 0x0C00_6400, val),
 	    0x0C00_6800..=0x0C00_6BFF => exi_write_u32(self, phys - 0x0C00_6800, val),
 	    0x0C00_6C00..=0x0C00_6FFF => ai_write_u32(self, phys - 0x0C00_6C00, val),
