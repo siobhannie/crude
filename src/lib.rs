@@ -23,6 +23,7 @@ pub mod external_interface;
 pub mod video_interface;
 pub mod dvd_interface;
 pub mod sram;
+pub mod dsp;
 
 pub struct Gamecube {
     pub cpu: Cpu,
