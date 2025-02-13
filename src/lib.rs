@@ -1,11 +1,12 @@
 #![feature(core_intrinsics)]
 #![feature(bigint_helper_methods)]
 
-use std::{fs::File, io::Write, sync::{Arc, RwLock}};
+use std::{fs::File, io::Write, sync::{atomic::AtomicU8, Arc, RwLock}};
 
 use audio_interface::{ai_read_u32, ai_write_u16, ai_write_u32, AudioInterface};
 use byteorder::{BigEndian, ByteOrder};
 use cpu::Cpu;
+use dsp::client::DSPClient;
 use dvd_interface::di_read_u32;
 use external_interface::{exi_read_u32, exi_write_u32, ExternalInterface};
 use memory_interface::{mi_write_u16, MemoryInterface};
@@ -33,11 +34,13 @@ pub struct Gamecube {
     pub mi: MemoryInterface,
     pub ai: AudioInterface,
     pub sram: Arc<RwLock<Sram>>,
+    pub aram: Arc<Vec<AtomicU8>>,
+    pub dsp_client: DSPClient,
     pub memory: Vec<u8>,
 }
 
 impl Gamecube {
-    pub fn new(bios: Vec<u8>) -> Self {
+    pub fn new(bios: Vec<u8>, aram: Arc<Vec<AtomicU8>>, dsp_client: DSPClient) -> Self {
 	let mut bios = bios;
 	descramble(&mut bios[0x100..0x1AFF00]);
 	let sram = Arc::new(RwLock::new(Sram::new()));
@@ -49,6 +52,8 @@ impl Gamecube {
 	    mi: MemoryInterface::new(),
 	    ai: AudioInterface::new(),
 	    sram,
+	    aram,
+	    dsp_client,
 	    memory: vec![0; 0x180_0000],
 	}
     }

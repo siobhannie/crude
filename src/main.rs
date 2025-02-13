@@ -1,6 +1,6 @@
-use std::{env, fs::File, io::{stdout, Read}, time::SystemTime};
+use std::{env, fs::File, io::{stdout, Read}, sync::{atomic::AtomicU8, Arc, RwLock}, time::SystemTime};
 
-use crude::Gamecube;
+use crude::{dsp::DSP, Gamecube};
 use fern::Dispatch;
 use log::LevelFilter;
 
@@ -21,6 +21,8 @@ fn main() {
     let bios_path = env::args().nth(1).unwrap();
     let mut bios_data = Vec::new();
     File::open(bios_path).unwrap().read_to_end(&mut bios_data).unwrap();
-    let mut gamecube = Gamecube::new(bios_data);
+    let aram = Arc::new(std::iter::repeat_with(|| AtomicU8::new(0)).take(0x0100_0000).collect::<Vec<_>>());
+    let (dsp, client) = DSP::new(aram.clone());
+    let mut gamecube = Gamecube::new(bios_data, aram, client);
     crude::run(&mut gamecube);
 }
