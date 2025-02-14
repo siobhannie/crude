@@ -6,7 +6,7 @@ use std::{fs::File, io::Write, sync::{atomic::AtomicU8, Arc, RwLock}};
 use audio_interface::{ai_read_u32, ai_write_u16, ai_write_u32, AudioInterface};
 use byteorder::{BigEndian, ByteOrder};
 use cpu::Cpu;
-use dsp::client::DSPClient;
+use dsp::{client::DSPClient, dsp_interface::{dsp_read_u16, dsp_write_u16, DSPInterface}};
 use dvd_interface::di_read_u32;
 use external_interface::{exi_read_u32, exi_write_u32, ExternalInterface};
 use memory_interface::{mi_write_u16, MemoryInterface};
@@ -36,6 +36,7 @@ pub struct Gamecube {
     pub sram: Arc<RwLock<Sram>>,
     pub aram: Arc<Vec<AtomicU8>>,
     pub dsp_client: DSPClient,
+    pub dsp: DSPInterface,
     pub memory: Vec<u8>,
 }
 
@@ -54,6 +55,7 @@ impl Gamecube {
 	    sram,
 	    aram,
 	    dsp_client,
+	    dsp: DSPInterface::new(),
 	    memory: vec![0; 0x180_0000],
 	}
     }
@@ -73,6 +75,7 @@ impl Gamecube {
 	match phys {
 	    0x0000_0000..=0x017F_FFFF => BigEndian::read_u16(&self.memory[(phys as usize)..]),
 	    0x0C00_2000..=0x0C00_2FFF => vi_read_u16(self, phys - 0x0C00_2000),
+	    0x0C00_5000..=0x0C00_5FFF => dsp_read_u16(self, phys - 0x0C00_5000),
 	    _ => unimplemented!("addr {phys:#010X} for read_u16"),
 	}
     }
@@ -116,7 +119,7 @@ impl Gamecube {
 	match phys {
 	    0x0000_0000..=0x017F_FFFF => BigEndian::write_u16(&mut self.memory[(phys as usize)..], val),
 	    0x0C00_4000..=0x0C00_4FFF => mi_write_u16(self, phys - 0x0C00_4000, val),
-	    0x0C00_5000..=0x0C00_5FFF => ai_write_u16(self, phys - 0x0C00_5000, val),
+	    0x0C00_5000..=0x0C00_5FFF => dsp_write_u16(self, phys - 0x0C00_5000, val),
 	    _ => unimplemented!("addr {phys:#010X} for write_u16"),
 	}
     }

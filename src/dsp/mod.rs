@@ -1,4 +1,4 @@
-use std::sync::{atomic::{AtomicU16, AtomicU8, Ordering}, Arc, RwLock};
+use std::{ops::Deref, sync::{atomic::{AtomicU16, AtomicU8, Ordering}, Arc, RwLock}};
 
 use bitmatch::bitmatch;
 use client::DSPClient;
@@ -8,6 +8,7 @@ pub mod client;
 mod stacks;
 mod dsp_int_arithmetic;
 mod dsp_config;
+pub mod dsp_interface;
 
 const REG_AR0: usize = 0;
 const REG_AR1: usize = 1;
@@ -50,13 +51,17 @@ pub struct DSP {
     exceptions: u16,
     stacks: DSPStacks,
     aram: Arc<Vec<AtomicU8>>,
-    client: DSPClient,
+    control: Arc<DSPControlRegister>,
+    cpu_mbox_h: Arc<AtomicU16>,
+    cpu_mbox_l: Arc<AtomicU16>,
 }
 
 
 impl DSP {
     pub fn new(aram: Arc<Vec<AtomicU8>>) -> (Self, DSPClient) {
-	let client = DSPClient::new();
+	let control =  Arc::new(DSPControlRegister(AtomicU16::new(0)));
+	let cpu_mbox_h = Arc::new(AtomicU16::new(0));
+	let cpu_mbox_l = Arc::new(AtomicU16::new(0));
 	(Self {
 	    registers: [0; 32],
 	    pc: 0,
@@ -67,13 +72,24 @@ impl DSP {
 	    exceptions: 0,
 	    stacks: DSPStacks::new(),
 	    aram,
-	    client: client.clone(),
-	}, client)
+	    control: control.clone(),
+	    cpu_mbox_h: cpu_mbox_h.clone(),
+	    cpu_mbox_l: cpu_mbox_l.clone(),
+	},
+	 DSPClient {
+	     control_reg: control,
+	     cpu_mbox_h,
+	     cpu_mbox_l,
+	 })
     }
 
     #[bitmatch]
     pub fn step(&mut self) {
-	if !self.client.control_reg.halt() {
+	if self.control.reset() {
+	    //do reset!!!!!!!
+	    self.control.clear_reset();
+	}
+	if !self.control.halt() {
 	    let instr = self.imem_read(self.pc);
 
 	    #[bitmatch]
@@ -128,5 +144,21 @@ impl DSPControlRegister {
 
     pub fn clear_halt(&self) {
 	self.0.fetch_and(!0x4, Ordering::Relaxed);
+    }
+
+    pub fn reset(&self) -> bool {
+	(self.0.load(Ordering::Relaxed) & 1) != 0
+    }
+
+    pub fn clear_reset(&self) {
+	self.0.fetch_and(!0x1, Ordering::Relaxed);
+    }
+}
+
+impl Deref for DSPControlRegister {
+    type Target = AtomicU16;
+
+    fn deref(&self) -> &Self::Target {
+	&self.0
     }
 }

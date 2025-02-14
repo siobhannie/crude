@@ -22,7 +22,10 @@ fn main() {
     let mut bios_data = Vec::new();
     File::open(bios_path).unwrap().read_to_end(&mut bios_data).unwrap();
     let aram = Arc::new(std::iter::repeat_with(|| AtomicU8::new(0)).take(0x0100_0000).collect::<Vec<_>>());
-    let (dsp, client) = DSP::new(aram.clone());
+    let (mut dsp, client) = DSP::new(aram.clone());
     let mut gamecube = Gamecube::new(bios_data, aram, client);
-    crude::run(&mut gamecube);
+    loop {
+	dsp.step();
+	crude::step(&mut gamecube);
+    }
 }

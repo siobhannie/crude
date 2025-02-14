@@ -1,6 +1,6 @@
-use std::{collections::HashSet, fs::File, io::Read, panic::{catch_unwind, AssertUnwindSafe}, path::PathBuf, sync::{atomic::{AtomicU32, Ordering}, mpsc::{channel, Receiver, Sender}, Arc}, thread};
+use std::{collections::HashSet, fs::File, io::Read, panic::{catch_unwind, AssertUnwindSafe}, path::PathBuf, sync::{atomic::{AtomicU32, AtomicU8, Ordering}, mpsc::{channel, Receiver, Sender}, Arc}, thread};
 
-use crude::Gamecube;
+use crude::{dsp::DSP, Gamecube};
 
 pub type SharedInstructionBuffer = Arc<[(AtomicU32, AtomicU32)]>;
 
@@ -11,7 +11,9 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
     let (tx_m, rx_m) = channel();
     let mut breakpoints = HashSet::new();
     thread::spawn(move || {
-	let mut gamecube = Gamecube::new(bios_data);
+	let aram = Arc::new(std::iter::repeat_with(|| AtomicU8::new(0)).take(0x0100_0000).collect::<Vec<_>>());
+	let (dsp, client) = DSP::new(aram.clone());
+	let mut gamecube = Gamecube::new(bios_data, aram, client);
 
 	processor_state.update(&mut gamecube);
 	update_instruction_buffer(&mut gamecube, &instruction_buffer);

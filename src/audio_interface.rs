@@ -16,6 +16,9 @@ impl AudioInterface {
 
 pub fn ai_write_u16(gc: &mut Gamecube, offset: u32, val: u16) {
     debug!("STUB: AI write_u16 at offset {offset:#010X} with val {val:#06X}");
+    match offset {
+	_ => unimplemented!("AI write_u16 at offset {offset:#010X} with val {val:#06X}"),
+    }
 }
 
 pub fn ai_write_u32(gc: &mut Gamecube, offset: u32, val: u32) {
