@@ -9,6 +9,7 @@ pub struct DSPInterface {
     ar_refresh: u16,
     ar_dma_mmaddr: u32,
     ar_dma_araddr: u32,
+    ar_dma_cnt: u32,
 }
 
 impl DSPInterface {
@@ -18,6 +19,7 @@ impl DSPInterface {
 	    ar_refresh: 0,
 	    ar_dma_mmaddr: 0,
 	    ar_dma_araddr: 0,
+	    ar_dma_cnt: 0,
 	}
     }
 }
@@ -49,6 +51,21 @@ pub fn dsp_write_u32(gc: &mut Gamecube, offset: u32, val: u32) {
     match offset {
 	0x20 => gc.dsp.ar_dma_mmaddr = val,
 	0x24 => gc.dsp.ar_dma_araddr = val,
+	0x28 => {
+	    gc.dsp.ar_dma_cnt = val;
+	    let read = ((gc.dsp.ar_dma_cnt >> 31) & 1) != 0;
+	    let length = gc.dsp.ar_dma_cnt & !(1 << 31);
+	    if read {
+		for i in 0..length {
+		    gc.memory[(gc.dsp.ar_dma_mmaddr + i) as usize] = gc.aram[(gc.dsp.ar_dma_araddr + i) as usize].load(Ordering::Relaxed);
+		}
+	    } else {
+		for i in 0..length {
+		    let val = gc.memory[(gc.dsp.ar_dma_mmaddr + i) as usize];
+		    gc.aram[(gc.dsp.ar_dma_araddr + i) as usize].store(val, Ordering::Relaxed);
+		}
+	    }
+	},
 	_ => unimplemented!("Unknown offset {offset:#010X} with val {val:#06X} for dsp write_u32!"),
     }
 }

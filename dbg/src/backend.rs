@@ -12,7 +12,7 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
     let mut breakpoints = HashSet::new();
     thread::spawn(move || {
 	let aram = Arc::new(std::iter::repeat_with(|| AtomicU8::new(0)).take(0x0100_0000).collect::<Vec<_>>());
-	let (dsp, client) = DSP::new(aram.clone());
+	let (mut dsp, client) = DSP::new(aram.clone());
 	let mut gamecube = Gamecube::new(bios_data, aram, client);
 
 	processor_state.update(&mut gamecube);
@@ -24,6 +24,7 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
 		    Command::Run => {
 			'shmeep: loop {
 			    for _ in 0..2000 {
+				dsp.step();
 				crude::step(&mut gamecube);
 				if breakpoints.contains(&gamecube.cpu.cia) {
 				    break 'shmeep;
@@ -40,6 +41,7 @@ pub fn start_emu(ipl_path: impl ToString, instruction_buffer: SharedInstructionB
 		    Command::Step => {
 			update_instruction_buffer(&mut gamecube, &instruction_buffer);
 			processor_state.update(&mut gamecube);
+			dsp.step();
 			crude::step(&mut gamecube);
 		    },
 		    Command::Breakpoint(addr) => {

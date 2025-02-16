@@ -9,6 +9,8 @@ mod stacks;
 mod dsp_int_arithmetic;
 mod dsp_config;
 pub mod dsp_interface;
+mod dsp_control_flow;
+mod dsp_load_store;
 
 const REG_AR0: usize = 0;
 const REG_AR1: usize = 1;
@@ -107,10 +109,13 @@ impl DSP {
 		"0000_0000_0000_10dd" => self.op_iar(d),
 		"0000_0000_0001_ssdd" => self.op_addarn(s, d),
 		"0000_0000_0010_0001" => self.op_halt(),
+		"0000_0000_010r_rrrr" => self.op_loop(r),
+		"0000_0000_011r_rrrr" => self.op_bloop(r),
+		"0000_0000_100d_dddd" => self.op_lri(d),
+		"0000_0000_110d_dddd" => self.op_lr(d),
+		"0000_0000_111s_ssss" => self.op_sr(s),
 		_ => unimplemented!("{instr:#018b}"),
 	    }
-	    
-	    self.pc += 1;
 	}
     }
     

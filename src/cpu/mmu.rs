@@ -58,7 +58,14 @@ impl Mmu {
 	    }
 	}
 
-	unimplemented!("page or segment translation :(, addr: {addr:#010X}");
+	let sr_idx = addr >> 28;
+	let sr = self.srs[sr_idx as usize];
+	let t = (sr >> 31) != 0;
+	if t {
+	    panic!("page translation");
+	} else {
+	    panic!("direct store");
+	}
     }
 }
 
