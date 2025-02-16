@@ -54,14 +54,18 @@ pub struct DSP {
     control: Arc<DSPControlRegister>,
     cpu_mbox_h: Arc<AtomicU16>,
     cpu_mbox_l: Arc<AtomicU16>,
+    dsp_mbox_h: Arc<AtomicU16>,
+    dsp_mbox_l: Arc<AtomicU16>,
 }
 
 
 impl DSP {
     pub fn new(aram: Arc<Vec<AtomicU8>>) -> (Self, DSPClient) {
-	let control =  Arc::new(DSPControlRegister(AtomicU16::new(0)));
+	let control =  Arc::new(DSPControlRegister(AtomicU16::new(0x4)));
 	let cpu_mbox_h = Arc::new(AtomicU16::new(0));
 	let cpu_mbox_l = Arc::new(AtomicU16::new(0));
+	let dsp_mbox_h = Arc::new(AtomicU16::new(0));
+	let dsp_mbox_l = Arc::new(AtomicU16::new(0));
 	(Self {
 	    registers: [0; 32],
 	    pc: 0,
@@ -75,11 +79,15 @@ impl DSP {
 	    control: control.clone(),
 	    cpu_mbox_h: cpu_mbox_h.clone(),
 	    cpu_mbox_l: cpu_mbox_l.clone(),
+	    dsp_mbox_h: dsp_mbox_h.clone(),
+	    dsp_mbox_l: dsp_mbox_l.clone(),
 	},
 	 DSPClient {
 	     control_reg: control,
 	     cpu_mbox_h,
 	     cpu_mbox_l,
+	     dsp_mbox_h,
+	     dsp_mbox_l,
 	 })
     }
 
