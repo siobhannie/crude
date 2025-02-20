@@ -25,4 +25,23 @@ impl DSP {
 	}
 	self.pc = a + 1;
     }
+
+    pub fn op_if(&mut self, c: u16) {
+	self.pc += 1;
+	
+	if self.condition(c) {
+	    self.step();
+	} else {
+	    self.pc += 1;
+	}
+    }
+
+    pub fn op_j(&mut self, c: u16) {
+	if self.condition(c) {
+	    let dest = self.imem_read(self.pc + 1);
+	    self.pc = dest;
+	} else {
+	    self.pc += 2;
+	}
+    }
 }
