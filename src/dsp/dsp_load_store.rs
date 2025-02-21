@@ -1,4 +1,4 @@
-use super::DSP;
+use super::{DSP, REG_AC0_H, REG_AC0_L, REG_AC0_M, REG_AC1_M, REG_SR};
 
 impl DSP {
     pub fn op_lr(&mut self, d: u16) {
@@ -12,8 +12,35 @@ impl DSP {
 	self.pc += 2;
     }
 
+    pub fn op_lrri(&mut self, s: u16, d: u16) {
+	let val = self.dmem_read(self.registers[s as usize]);
+	self.registers[d as usize] = val;
+	self.registers[s as usize] += 1;
+	self.pc += 1;
+    }
+
     pub fn op_sr(&mut self, s: u16) {
 	let addr = self.imem_read(self.pc + 1);
 	self.dmem_write(addr, self.registers[s as usize]);
+	self.pc += 2;
+    }
+
+    pub fn op_si(&mut self, m: u16) {
+	let m = (((m as u8) as i8) as i16) as u16;
+	let imm = self.imem_read(self.pc + 1);
+	self.dmem_write(m, imm);
+	self.pc += 2;
+    }
+
+    pub fn op_ilrr(&mut self, d: u16, s: u16, change_by: i16) {
+	let reg = if d == 0 {
+	    REG_AC0_M
+	} else {
+	    REG_AC1_M
+	};
+
+	self.registers[reg] = self.imem_read(self.registers[s as usize]);
+	self.registers[s as usize] = self.registers[s as usize].wrapping_add_signed(change_by);
+	self.pc += 1;
     }
 }

@@ -11,6 +11,8 @@ mod dsp_config;
 pub mod dsp_interface;
 mod dsp_control_flow;
 mod dsp_load_store;
+mod dsp_bitwise;
+mod dsp_misc;
 
 const REG_AR0: usize = 0;
 const REG_AR1: usize = 1;
@@ -41,6 +43,8 @@ const REG_AC0_L: usize = 28;
 const REG_AC1_L: usize = 29;
 const REG_AC0_M: usize = 30;
 const REG_AC1_M: usize = 31;
+
+const SR_LZ: u16 = 1 << 6;
 
 pub struct DSP {
     registers: [u16; 32],
@@ -101,10 +105,10 @@ impl DSP {
 	}
 	if !self.control.halt() {
 	    let instr = self.imem_read(self.pc);
-
+//	    println!("instr: {instr:#018b}, pc: {:#06X}", self.pc);
 	    #[bitmatch]
 	    match instr {
-		"0000_0000_0000_0000" => {}, //NOP
+		"0000_0000_0000_0000" => {self.pc += 1}, //NOP
 		"0000_0000_0000_01dd" => self.op_dar(d),
 		"0000_0000_0000_10dd" => self.op_iar(d),
 		"0000_0000_0001_ssdd" => self.op_addarn(s, d),
@@ -114,8 +118,32 @@ impl DSP {
 		"0000_0000_100d_dddd" => self.op_lri(d),
 		"0000_0000_110d_dddd" => self.op_lr(d),
 		"0000_0000_111s_ssss" => self.op_sr(s),
+		"0000_001d_0001_00ss" => self.op_ilrr(d, s, 0),
+		"0000_001d_0001_01ss" => self.op_ilrr(d, s, -1),
+		"0000_001d_0001_10ss" => self.op_ilrr(d, s, 1),
+		"0000_001d_0001_11ss" => self.op_ilrr(d, s, self.registers[(s + 4) as usize] as i16),
+		"0000_0010_0111_cccc" => self.op_if(c),
+		"0000_0010_1001_cccc" => self.op_j(c),
+		"0000_001r_1010_0000" => self.op_andcf(r),
+		"0001_0010_0000_0iii" => self.op_sbset(i),
+		"0001_0110_iiii_iiii" => self.op_si(i),
+		"0001_1001_0ssd_dddd" => self.op_lrri(s, d),
+		"0001_11dd_ddds_ssss" => self.op_mrr(d, s),
+		"1000_r001_xxxx_xxxx" => {
+		    self.op_clr(r);
+		    self.extension(x as u8);
+		},
 		_ => unimplemented!("{instr:#018b}"),
 	    }
+	}
+    }
+
+    #[bitmatch]
+    fn extension(&mut self, instr: u8) {
+	#[bitmatch]
+	match instr {
+	    "00000_0000" => {}, //NOP
+	    _ => unimplemented!("{instr:#010b}"),
 	}
     }
     
@@ -135,12 +163,45 @@ impl DSP {
 	}
     }
 
+    fn condition(&self, c: u16) -> bool {
+	match c {
+	    0b1100 => (self.registers[REG_SR] & 0x40) != 0,
+	    0b1111 => true,
+	    a => unimplemented!("condition code {a:#06b}"),
+	}
+    }
+
     fn dmem_read(&mut self, addr: u16) -> u16 {
-	todo!();
+	match addr >> 12 {
+	    0x0 => {
+		let dram_addr = (addr & 0x0FFF) as usize;
+		self.dram[dram_addr]
+	    },
+	    0xF => {
+		match addr {
+		    0xFFFC => self.dsp_mbox_h.load(Ordering::Relaxed),
+		    _ => unimplemented!("HW register {addr:#06X}"),
+		}
+	    }
+	    a => unimplemented!("address prefix {a:#06X}"),
+	}
     }
 
     fn dmem_write(&mut self, addr: u16, val: u16) {
-	todo!();
+	match addr >> 12 {
+	    0x0 => {
+		let dram_addr = (addr & 0x0FFF) as usize;
+		self.dram[dram_addr] = val;
+	    }
+	    0xF => {
+		match addr {
+		    0xFFFC => self.dsp_mbox_h.store(val, Ordering::Relaxed),
+		    0xFFFD => self.dsp_mbox_l.store(val, Ordering::Relaxed),
+		    _ => unimplemented!("HW register {addr:#06X}"),
+		}
+	    }
+	    a => unimplemented!("address prefix {a:#06X}"),
+	}
     }
 }
 
@@ -165,6 +226,10 @@ impl DSPControlRegister {
 
     pub fn clear_reset(&self) {
 	self.0.fetch_and(!0x1, Ordering::Relaxed);
+    }
+
+    pub fn init(&self) -> bool {
+	(self.0.load(Ordering::Relaxed) & 0x0800) != 0
     }
 }
 
