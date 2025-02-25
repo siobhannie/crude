@@ -6,7 +6,7 @@ impl DSP {
 	    return;
 	}
 
-	if (self.registers[REG_SR] & 0x4000) != 0 {
+	if !((self.registers[REG_SR] & 0x4000) != 0) {
 	    return;
 	}
 

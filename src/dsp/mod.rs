@@ -106,6 +106,64 @@ impl DSP {
 	 })
     }
 
+    pub fn read_reg(&mut self, reg: usize) -> u16 {
+	match reg {
+	    REG_ST0 | REG_ST1 | REG_ST2 | REG_ST3 => {
+		self.pop_stack(reg - REG_ST0)
+	    },
+	    REG_AR0 | REG_AR1 | REG_AR2 | REG_AR3 | REG_IX0 | REG_IX1 | REG_IX2 | REG_IX3 | 0x8 | 0x9 | 0xa | 0xb | REG_PROD_L | REG_PROD_M1 | REG_PROD_M2 | REG_AX0_L | REG_AX1_L | REG_AX0_H | REG_AX1_H | REG_AC0_L | REG_AC1_L | REG_CONFIG | REG_SR | REG_PROD_H | REG_AC0_H | REG_AC1_H => {
+		self.registers[reg]
+	    },
+	    REG_AC0_M | REG_AC1_M => {
+		if (self.registers[REG_SR] & 0x4000) != 0 {
+		    let long = self.acc(reg - REG_AC0_M) as i64;
+
+		    if long != ((long as i32) as i64) {
+			if long > 0 {
+			    0x7fff
+			} else {
+			    0x8000
+			}
+		    } else {
+			self.registers[reg]
+		    }
+		} else {
+		    self.registers[reg]
+		}
+	    },
+	    _ => unreachable!(),
+	}
+    }
+
+    pub fn write_reg(&mut self, reg: usize, val: u16) {
+	match reg {
+	    REG_AC0_H | REG_AC1_H => {
+		self.registers[reg] = (val as i8) as u16;
+	    },
+	    REG_ST0 | REG_ST1 | REG_ST2 | REG_ST3 => {
+		self.push_stack(reg - REG_ST0, val);
+	    },
+	    REG_AR0 | REG_AR1 | REG_AR2 | REG_AR3 | REG_IX0 | REG_IX1 | REG_IX2 | REG_IX3 | 0x8 | 0x9 | 0xa | 0xb | REG_PROD_L | REG_PROD_M1 | REG_PROD_M2 | REG_AX0_L | REG_AX1_L | REG_AX0_H | REG_AX1_H | REG_AC0_L | REG_AC1_L | REG_AC0_M | REG_AC1_M => {
+		self.registers[reg] = val;
+	    },
+	    REG_CONFIG | REG_PROD_H => {
+		self.registers[reg] = val & 0x00ff;
+	    },
+	    REG_SR => {
+		self.registers[reg] = val & !0x100;
+	    }
+	    _ => unreachable!(),
+	}
+    }
+
+    pub fn acc(&self, acc: usize) -> u64 {
+	let h = self.registers[REG_AC0_H + acc] as u64;
+	let m = self.registers[REG_AC0_M + acc] as u64;
+	let l = self.registers[REG_AC0_L + acc] as u64;
+
+	(h << 32) | (m << 16) | l
+    }
+
     #[bitmatch]
     pub fn step(&mut self) {
 	if self.control.reset() {
@@ -143,8 +201,13 @@ impl DSP {
 		"0001_1001_0ssd_dddd" => self.op_lrri(s, d),
 		"0001_11dd_ddds_ssss" => self.op_mrr(d, s),
 		"0010_0ddd_mmmm_mmmm" => self.op_lrs(d, m),
+		"0010_1sss_mmmm_mmmm" => self.op_srs(s, m),
 		"1000_r001_xxxx_xxxx" => {
 		    self.op_clr(r);
+		    self.extension(x as u8);
+		},
+		"1000_0010_xxxx_xxxx" => {
+		    self.op_cmp();
 		    self.extension(x as u8);
 		},
 		"1000_1bbb_xxxx_xxxx" => {
@@ -162,6 +225,35 @@ impl DSP {
 	match instr {
 	    "00000_0000" => {}, //NOP
 	    _ => unimplemented!("{instr:#010b}"),
+	}
+    }
+
+    pub fn do_sr(&mut self, res: i64, carry: bool, overflow: bool) {
+	self.registers[REG_SR] &= !0x3f;
+
+	if carry {
+	    self.registers[REG_SR] |= 0x1;
+	}
+
+	if overflow {
+	    self.registers[REG_SR] |= 0x2;
+	    self.registers[REG_SR] |= 0x80;
+	}
+
+	if res == 0 {
+	    self.registers[REG_SR] |= 0x4;
+	}
+
+	if res < 0 {
+	    self.registers[REG_SR] |= 0x8;
+	}
+
+	if res != ((res as i32) as i64) {
+	    self.registers[REG_SR] |= 0x10;
+	}
+
+	if ((res & 0xc000_0000) == 0) || ((res & 0xc000_0000) == 0xc000_0000) {
+	    self.registers[REG_SR] |= 0x20;
 	}
     }
     
@@ -183,6 +275,7 @@ impl DSP {
 
     fn condition(&self, c: u16) -> bool {
 	match c {
+	    0b0101 => (self.registers[REG_SR] & 0x4) != 0,
 	    0b1100 => !((self.registers[REG_SR] & SR_LZ) != 0),
 	    0b1111 => true,
 	    a => unimplemented!("condition code {a:#06b}"),
@@ -199,6 +292,7 @@ impl DSP {
 		match addr {
 		    0xFFFC => self.dsp_mbox_h.load(Ordering::Relaxed),
 		    0xFFFE => self.cpu_mbox_h.load(Ordering::Relaxed),
+		    0xFFFF => self.cpu_mbox_l.load(Ordering::Relaxed),
 		    _ => unimplemented!("HW register {addr:#06X}"),
 		}
 	    }

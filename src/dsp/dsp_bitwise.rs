@@ -2,12 +2,14 @@ use super::{DSP, REG_AC0_M, REG_SR, SR_LZ};
 
 impl DSP {
     pub fn op_sbset(&mut self, i: u16) {
-	self.registers[REG_SR] |= (1 << (i + 6));
+	println!("{:#06X}: SBSET #{i}", self.pc);
+	self.registers[REG_SR] |= 1 << (i + 6);
 	self.pc += 1;
     }
 
     pub fn op_andf(&mut self, r: u16) {
 	let imm = self.imem_read(self.pc + 1);
+	println!("{:#06X}: ANDF $ac{r}.m, #{imm:#06X}", self.pc);
 	if (self.registers[REG_AC0_M + (r as usize)] & imm) == 0 {
 	    self.registers[REG_SR] |= SR_LZ;
 	} else {
@@ -18,6 +20,7 @@ impl DSP {
 
     pub fn op_andcf(&mut self, r: u16) {
 	let imm = self.imem_read(self.pc + 1);
+	println!("{:#06X}: ANDCF $ac{r}.m, #{imm:#06X}", self.pc);
 	if (self.registers[REG_AC0_M + (r as usize)] & imm) == imm {
 	    self.registers[REG_SR] |= SR_LZ;
 	} else {
