@@ -62,7 +62,7 @@ pub fn dsp_write_u32(gc: &mut Gamecube, offset: u32, val: u32) {
 	0x28 => {
 	    gc.dsp.ar_dma_cnt = val;
 	    let read = ((gc.dsp.ar_dma_cnt >> 31) & 1) != 0;
-	    let length = (gc.dsp.ar_dma_cnt & !(1 << 31)) * 2;
+	    let length = (gc.dsp.ar_dma_cnt & !(1 << 31));
 	    println!("length: {length:#010X}");
 	    if read {
 		for i in 0..length {

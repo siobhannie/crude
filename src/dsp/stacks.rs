@@ -1,6 +1,6 @@
 pub struct DSPStacks {
-    stacks: [[u16; 0x20]; 4],
-    pointers: [usize; 4],
+    pub stacks: [[u16; 0x20]; 4],
+    pub pointers: [usize; 4],
 }
 
 impl DSPStacks {

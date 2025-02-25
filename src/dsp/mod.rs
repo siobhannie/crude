@@ -1,6 +1,7 @@
-use std::{ops::Deref, sync::{atomic::{AtomicU16, AtomicU8, Ordering}, Arc, RwLock}};
+use std::{fs::File, io::Read, ops::Deref, sync::{atomic::{AtomicU16, AtomicU8, Ordering}, Arc, RwLock}};
 
 use bitmatch::bitmatch;
+use byteorder::{BigEndian, ByteOrder};
 use client::DSPClient;
 use stacks::DSPStacks;
 
@@ -13,6 +14,7 @@ mod dsp_control_flow;
 mod dsp_load_store;
 mod dsp_bitwise;
 mod dsp_misc;
+mod util;
 
 const REG_AR0: usize = 0;
 const REG_AR1: usize = 1;
@@ -67,17 +69,24 @@ pub struct DSP {
 
 impl DSP {
     pub fn new(aram: Arc<Vec<AtomicU8>>) -> (Self, DSPClient) {
-	let control =  Arc::new(DSPControlRegister(AtomicU16::new(0x4)));
+	let control =  Arc::new(DSPControlRegister(AtomicU16::new(0x5)));
 	let cpu_mbox_h = Arc::new(AtomicU16::new(0));
 	let cpu_mbox_l = Arc::new(AtomicU16::new(0));
 	let dsp_mbox_h = Arc::new(AtomicU16::new(0));
 	let dsp_mbox_l = Arc::new(AtomicU16::new(0));
+	let mut irom_dump = Vec::new();
+	let mut irom = [0u16; 0x1000];
+	let irom_file = File::open("get-your-own/dsp_rom.bin").unwrap().read_to_end(&mut irom_dump);
+	for i in 0..(irom.len() / 2) {
+	    let val = BigEndian::read_u16(&irom_dump[(i * 2)..]);
+	    irom[i] = val;
+	}
 	(Self {
 	    registers: [0; 32],
 	    pc: 0,
 //	    iram: [0; 0x1000],
 	    dram: [0; 0x1000],
-	    irom: [0; 0x1000],
+	    irom,
 	    drom: [0; 0x0800],
 	    exceptions: 0,
 	    stacks: DSPStacks::new(),
@@ -101,11 +110,12 @@ impl DSP {
     pub fn step(&mut self) {
 	if self.control.reset() {
 	    //do reset!!!!!!!
+	    self.pc = 0x8000;
 	    self.control.clear_reset();
 	}
 	if !self.control.halt() {
 	    let instr = self.imem_read(self.pc);
-//	    println!("instr: {instr:#018b}, pc: {:#06X}", self.pc);
+	    println!("instr: {instr:#018b}, pc: {:#06X}", self.pc);
 	    #[bitmatch]
 	    match instr {
 		"0000_0000_0000_0000" => {self.pc += 1}, //NOP
@@ -124,15 +134,23 @@ impl DSP {
 		"0000_001d_0001_11ss" => self.op_ilrr(d, s, self.registers[(s + 4) as usize] as i16),
 		"0000_0010_0111_cccc" => self.op_if(c),
 		"0000_0010_1001_cccc" => self.op_j(c),
+		"0000_0010_1011_cccc" => self.op_call(c),
+		"0000_0010_1101_cccc" => self.op_ret(c),
 		"0000_001r_1010_0000" => self.op_andcf(r),
+		"0000_001r_1100_0000" => self.op_andf(r),
 		"0001_0010_0000_0iii" => self.op_sbset(i),
 		"0001_0110_iiii_iiii" => self.op_si(i),
 		"0001_1001_0ssd_dddd" => self.op_lrri(s, d),
 		"0001_11dd_ddds_ssss" => self.op_mrr(d, s),
+		"0010_0ddd_mmmm_mmmm" => self.op_lrs(d, m),
 		"1000_r001_xxxx_xxxx" => {
 		    self.op_clr(r);
 		    self.extension(x as u8);
 		},
+		"1000_1bbb_xxxx_xxxx" => {
+		    self.op_srbit(b);
+		    self.extension(x as u8);
+		}
 		_ => unimplemented!("{instr:#018b}"),
 	    }
 	}
@@ -165,7 +183,7 @@ impl DSP {
 
     fn condition(&self, c: u16) -> bool {
 	match c {
-	    0b1100 => (self.registers[REG_SR] & 0x40) != 0,
+	    0b1100 => !((self.registers[REG_SR] & SR_LZ) != 0),
 	    0b1111 => true,
 	    a => unimplemented!("condition code {a:#06b}"),
 	}
@@ -180,6 +198,7 @@ impl DSP {
 	    0xF => {
 		match addr {
 		    0xFFFC => self.dsp_mbox_h.load(Ordering::Relaxed),
+		    0xFFFE => self.cpu_mbox_h.load(Ordering::Relaxed),
 		    _ => unimplemented!("HW register {addr:#06X}"),
 		}
 	    }
@@ -202,6 +221,24 @@ impl DSP {
 	    }
 	    a => unimplemented!("address prefix {a:#06X}"),
 	}
+    }
+
+    fn push_stack(&mut self, stack: usize, val: u16) {
+	self.stacks.pointers[stack] += 1;
+	self.stacks.pointers[stack] &= 0x1f;
+	self.stacks.stacks[stack][self.stacks.pointers[stack]] = self.registers[REG_ST0 + stack];
+
+	self.registers[REG_ST0 + stack] = val;
+    }
+
+    fn pop_stack(&mut self, stack: usize) -> u16 {
+	let val = self.registers[REG_ST0 + stack];
+
+	self.registers[REG_ST0 + stack] = self.stacks.stacks[stack][self.stacks.pointers[stack]];
+	self.stacks.pointers[stack] -= 1;
+	self.stacks.pointers[stack] &= 0x1f;
+	
+	val
     }
 }
 

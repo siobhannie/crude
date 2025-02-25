@@ -44,4 +44,22 @@ impl DSP {
 	    self.pc += 2;
 	}
     }
+
+    pub fn op_call(&mut self, c: u16) {
+	if self.condition(c) {
+	    let dest = self.imem_read(self.pc + 1);
+	    self.push_stack(0, self.pc + 2);
+	    self.pc = dest;
+	} else {
+	    self.pc += 2;
+	}
+    }
+
+    pub fn op_ret(&mut self, c: u16) {
+	if self.condition(c) {
+	    self.pc = self.pop_stack(0);
+	} else {
+	    self.pc += 1;
+	}
+    }
 }

@@ -26,6 +26,8 @@ fn main() {
     let mut gamecube = Gamecube::new(bios_data, aram, client);
     loop {
 	dsp.step();
-	crude::step(&mut gamecube);
+	for _ in 0..6 {
+	    crude::step(&mut gamecube);
+	}
     }
 }
